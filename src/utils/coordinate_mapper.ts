@@ -29,7 +29,8 @@ export function create_coordinate_mapper(
     to_pdf: (x_screen: number, y_screen: number): [number, number] => {
       // PDF.js viewport handles the coordinate transformation
       // including the origin conversion (top-left vs bottom-left)
-      return viewport.convertToPdfPoint(x_screen, y_screen);
+      const result = viewport.convertToPdfPoint(x_screen, y_screen);
+      return [result[0], result[1]];
     },
 
     /**
@@ -39,7 +40,8 @@ export function create_coordinate_mapper(
      * @returns [x_screen, y_screen] coordinates in screen space
      */
     to_screen: (x_pdf: number, y_pdf: number): [number, number] => {
-      return viewport.convertToViewportPoint(x_pdf, y_pdf);
+      const result = viewport.convertToViewportPoint(x_pdf, y_pdf);
+      return [result[0], result[1]];
     },
   };
 }

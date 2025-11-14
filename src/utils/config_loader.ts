@@ -401,6 +401,25 @@ export function parse_string(value: string | undefined, default_value: string): 
 }
 
 /**
+ * Parse a boolean value from config
+ * @param value - Boolean value from config (true/false, yes/no, 1/0)
+ * @param default_value - Default boolean if parsing fails
+ * @returns Parsed boolean value
+ */
+export function parse_boolean(value: string | undefined, default_value: boolean): boolean {
+  if (!value) return default_value;
+  const lower = value.toLowerCase().trim();
+  if (lower === 'true' || lower === 'yes' || lower === '1') {
+    return true;
+  }
+  if (lower === 'false' || lower === 'no' || lower === '0') {
+    return false;
+  }
+  console.warn(`[ConfigLoader] Invalid boolean value: ${value}, using default: ${default_value}`);
+  return default_value;
+}
+
+/**
  * Load PDF viewer configuration from INI file
  * Supports both Node.js (using hazo_config) and browser (using fetch) environments
  * @param config_file - Optional path to config file. If not provided, returns defaults

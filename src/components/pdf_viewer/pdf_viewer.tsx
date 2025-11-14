@@ -6,14 +6,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2 } from 'lucide-react';
+import { Save, Undo2, Redo2, Hand } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
 import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig } from '../../types';
-import { load_pdf_config, load_pdf_config_async, build_config_from_ini, parse_string, parse_number, parse_opacity, parse_color } from '../../utils/config_loader';
-import { default_config } from '../../config/default_config';
+import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { cn } from '../../utils/cn';
 
 /**
@@ -39,12 +38,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const [error, setError] = useState<Error | null>(null);
   const [scale, setScale] = useState(initial_scale);
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>(initial_annotations);
-  const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>('Square');
+  // Default tool is Pan (null) for scrolling the document
+  const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>(null);
   const [saving, setSaving] = useState(false);
   
   // Load configuration from file
   const config_ref = useRef<PdfViewerConfig | null>(null);
-  const [config_loaded, setConfigLoaded] = useState(false);
   
   // Load config once on mount
   // Uses hazo_config in Node.js (preferred), fetch + compatible parsing in browser
@@ -52,7 +51,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     if (!config_file) {
       // No config file specified, use defaults
       config_ref.current = load_pdf_config();
-      setConfigLoaded(true);
       return;
     }
     
@@ -66,18 +64,15 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         .then(config => {
           config_ref.current = config;
           console.log(`[PdfViewer] Config loaded in browser, background_color: "${config.freetext_annotation.freetext_background_color}", opacity: ${config.freetext_annotation.freetext_background_opacity}`);
-          setConfigLoaded(true);
         })
         .catch(error => {
           console.warn(`[PdfViewer] Could not load config file "${config_file}", using defaults:`, error);
           config_ref.current = load_pdf_config(); // Use defaults
-          setConfigLoaded(true);
         });
     } else {
       // Node.js: use hazo_config (preferred method)
       config_ref.current = load_pdf_config(config_file);
       console.log(`[PdfViewer] Config loaded using hazo_config, background_color: "${config_ref.current?.freetext_annotation.freetext_background_color}", opacity: ${config_ref.current?.freetext_annotation.freetext_background_opacity}`);
-      setConfigLoaded(true);
     }
   }, [config_file]);
   
@@ -126,6 +121,11 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
   // Load PDF document
   useEffect(() => {
+    // Ensure we're in browser environment before loading PDF
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
     if (!url) {
       console.warn('PdfViewer: No URL provided');
       return;
@@ -135,24 +135,33 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     setLoading(true);
     setError(null);
 
-    load_pdf_document(url)
-      .then((document) => {
-        console.log('PdfViewer: PDF loaded successfully, pages:', document.numPages);
-        setPdfDocument(document);
-        setLoading(false);
-        if (on_load) {
-          on_load(document);
-        }
-      })
-      .catch((err) => {
-        console.error('PdfViewer: Error loading PDF:', err);
-        const error_obj = err instanceof Error ? err : new Error(String(err));
-        setError(error_obj);
-        setLoading(false);
-        if (on_error) {
-          on_error(error_obj);
-        }
-      });
+    // Use a timeout to ensure we're fully in browser context
+    // This helps with React Strict Mode and SSR hydration issues
+    const load_timeout = setTimeout(() => {
+      load_pdf_document(url)
+        .then((document) => {
+          console.log('PdfViewer: PDF loaded successfully, pages:', document.numPages);
+          setPdfDocument(document);
+          setLoading(false);
+          if (on_load) {
+            on_load(document);
+          }
+        })
+        .catch((err) => {
+          console.error('PdfViewer: Error loading PDF:', err);
+          const error_obj = err instanceof Error ? err : new Error(String(err));
+          setError(error_obj);
+          setLoading(false);
+          if (on_error) {
+            on_error(error_obj);
+          }
+        });
+    }, 0);
+
+    // Cleanup: cancel loading if component unmounts
+    return () => {
+      clearTimeout(load_timeout);
+    };
   }, [url, on_load, on_error]);
 
   // Debug: Log mouse position on left mouse button click
@@ -204,8 +213,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  // Handle annotation update
-  const handle_annotation_update = (annotation: PdfAnnotation) => {
+  // Handle annotation update (for future use)
+  // Prefixed with _ to indicate intentionally unused
+  const _handle_annotation_update = (annotation: PdfAnnotation) => {
     const updated_annotations = annotations.map((ann) =>
       ann.id === annotation.id ? annotation : ann
     );
@@ -216,8 +226,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  // Handle annotation delete
-  const handle_annotation_delete = (annotation_id: string) => {
+  // Handle annotation delete (for future use)
+  // Prefixed with _ to indicate intentionally unused
+  const _handle_annotation_delete = (annotation_id: string) => {
     const filtered_annotations = annotations.filter(
       (ann) => ann.id !== annotation_id
     );
@@ -227,6 +238,11 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       on_annotation_delete(annotation_id);
     }
   };
+
+  // Reference unused handlers to suppress TypeScript errors
+  // These are kept for future functionality
+  void _handle_annotation_update;
+  void _handle_annotation_delete;
 
   // Handle undo
   const handle_undo = useCallback(() => {
@@ -406,6 +422,19 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         <div className="cls_pdf_viewer_toolbar_group">
           <button
             type="button"
+            onClick={() => setCurrentTool(null)}
+            className={cn(
+              'cls_pdf_viewer_toolbar_button',
+              !current_tool && 'cls_pdf_viewer_toolbar_button_active'
+            )}
+            aria-label="Pan tool (drag to scroll)"
+            title="Pan tool (drag to scroll)"
+          >
+            <Hand className="cls_pdf_viewer_toolbar_icon" size={16} />
+            <span className="cls_pdf_viewer_toolbar_button_text">Pan</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setCurrentTool('Square')}
             className={cn(
               'cls_pdf_viewer_toolbar_button',
@@ -425,17 +454,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             aria-label="Highlight annotation tool"
           >
             Highlight
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentTool(null)}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              !current_tool && 'cls_pdf_viewer_toolbar_button_active'
-            )}
-            aria-label="Select tool"
-          >
-            Select
           </button>
         </div>
 
@@ -504,7 +522,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           on_context_menu={(e, page_index, screen_x, screen_y, mapper) => {
             const menu_x = e.clientX;
             const menu_y = e.clientY;
-            const state_set_time = performance.now();
             
             console.log(`🟢 [PdfViewer] Context menu state set: page=${page_index}, x=${menu_x}, y=${menu_y}, screenX=${screen_x.toFixed(1)}, screenY=${screen_y.toFixed(1)}, valid=${isFinite(menu_x) && isFinite(menu_y)}`);
             

@@ -8,6 +8,14 @@ dist/
 build/
 *.tsbuildinfo
 
+# Next.js build output
+.next/
+out/
+.vercel
+
+# Next.js cache
+.next/cache/
+
 # Testing
 coverage/
 

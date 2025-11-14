@@ -109,6 +109,7 @@ export const TextAnnotationDialog: React.FC<TextAnnotationDialogProps> = ({
         window.removeEventListener('keydown', handle_keydown);
       };
     }
+    return undefined;
   }, [open, text]);
 
   if (!open || !mounted) {

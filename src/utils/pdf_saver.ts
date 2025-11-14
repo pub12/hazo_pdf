@@ -19,7 +19,7 @@ import { default_config } from '../config/default_config';
 export async function save_annotations_to_pdf(
   pdf_url: string,
   annotations: PdfAnnotation[],
-  output_filename?: string,
+  _output_filename?: string, // Currently unused, kept for API compatibility
   config?: PdfViewerConfig | null
 ): Promise<Uint8Array> {
   try {
@@ -193,7 +193,10 @@ export async function save_annotations_to_pdf(
  * @param filename - Name for the downloaded file
  */
 export function download_pdf(pdf_bytes: Uint8Array, filename: string): void {
-  const blob = new Blob([pdf_bytes], { type: 'application/pdf' });
+  // Create a new ArrayBuffer view to ensure compatibility with Blob constructor
+  // Uint8Array.buffer can be SharedArrayBuffer, which Blob doesn't accept directly
+  const buffer = new Uint8Array(pdf_bytes).buffer;
+  const blob = new Blob([buffer], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

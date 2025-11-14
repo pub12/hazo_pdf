@@ -71,6 +71,10 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   >(new Map());
   const container_ref = useRef<HTMLDivElement>(null);
   const has_centered_ref = useRef(false);
+  
+  // Pan/scroll state
+  const [is_panning, setIsPanning] = useState(false);
+  const pan_start_ref = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
 
   // Load all pages from the PDF document
   useEffect(() => {
@@ -155,6 +159,98 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
     };
   }, [loading, pages.length, coordinate_mappers.size]);
 
+  // Pan/scroll handlers (only active when current_tool is null/pan mode)
+  const handle_mouse_down = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return;
+    
+    // Only pan when no tool is selected (pan mode)
+    if (current_tool !== null) return;
+    
+    // Don't pan if clicking on interactive elements (buttons, inputs, etc.)
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('a')) {
+      return;
+    }
+    
+    // Allow panning even if clicking on annotation overlay in pan mode
+    // The overlay's handle_mouse_down will return early in pan mode
+    
+    if (container_ref.current) {
+      setIsPanning(true);
+      pan_start_ref.current = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: container_ref.current.scrollLeft,
+        scrollTop: container_ref.current.scrollTop,
+      };
+      e.preventDefault(); // Prevent text selection while panning
+      e.stopPropagation(); // Prevent event bubbling
+      container_ref.current.style.cursor = 'grabbing';
+      
+      // Debug: Log pan start with scroll info
+      const pages_container = container_ref.current.querySelector('.cls_pdf_viewer_pages_container') as HTMLElement;
+      console.log(`[Pan Start] scrollLeft=${container_ref.current.scrollLeft.toFixed(1)}, scrollTop=${container_ref.current.scrollTop.toFixed(1)}, scrollWidth=${container_ref.current.scrollWidth}, clientWidth=${container_ref.current.clientWidth}, scrollHeight=${container_ref.current.scrollHeight}, clientHeight=${container_ref.current.clientHeight}, pagesContainerWidth=${pages_container?.offsetWidth || 'N/A'}, pagesContainerScrollWidth=${pages_container?.scrollWidth || 'N/A'}, containerOffsetWidth=${container_ref.current.offsetWidth}`);
+    }
+  }, [current_tool]);
+
+  const handle_mouse_move = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+    if (!is_panning || !pan_start_ref.current || !container_ref.current) return;
+    
+    // Prevent default to avoid text selection and other default behaviors
+    e.preventDefault();
+    
+    const delta_x = pan_start_ref.current.x - e.clientX;
+    const delta_y = pan_start_ref.current.y - e.clientY;
+    
+    // Calculate new scroll positions
+    const max_scroll_left = Math.max(0, container_ref.current.scrollWidth - container_ref.current.clientWidth);
+    const max_scroll_top = Math.max(0, container_ref.current.scrollHeight - container_ref.current.clientHeight);
+    
+    const new_scroll_left = Math.max(0, Math.min(max_scroll_left, pan_start_ref.current.scrollLeft + delta_x));
+    const new_scroll_top = Math.max(0, Math.min(max_scroll_top, pan_start_ref.current.scrollTop + delta_y));
+    
+    // Update both horizontal and vertical scroll positions (browser will clamp these anyway)
+    container_ref.current.scrollLeft = new_scroll_left;
+    container_ref.current.scrollTop = new_scroll_top;
+    
+    // Debug: Log scroll values to troubleshoot horizontal scrolling
+    console.log(`[Pan] delta_x=${delta_x.toFixed(1)}, delta_y=${delta_y.toFixed(1)}, scrollLeft=${new_scroll_left.toFixed(1)} (max=${max_scroll_left.toFixed(1)}), scrollTop=${new_scroll_top.toFixed(1)} (max=${max_scroll_top.toFixed(1)}), scrollWidth=${container_ref.current.scrollWidth}, clientWidth=${container_ref.current.clientWidth}, scrollHeight=${container_ref.current.scrollHeight}, clientHeight=${container_ref.current.clientHeight}, canScrollHorizontally=${container_ref.current.scrollWidth > container_ref.current.clientWidth}, canScrollVertically=${container_ref.current.scrollHeight > container_ref.current.clientHeight}`);
+  }, [is_panning]);
+
+  const handle_mouse_up = useCallback(() => {
+    if (container_ref.current) {
+      container_ref.current.style.cursor = current_tool === null ? 'grab' : 'default';
+    }
+    setIsPanning(false);
+    pan_start_ref.current = null;
+  }, [current_tool]);
+
+  // Update cursor style based on current tool
+  useEffect(() => {
+    if (container_ref.current) {
+      if (current_tool === null) {
+        container_ref.current.style.cursor = is_panning ? 'grabbing' : 'grab';
+      } else {
+        container_ref.current.style.cursor = 'default';
+      }
+    }
+  }, [current_tool, is_panning]);
+
+  // Add global mouse move and up listeners for panning
+  useEffect(() => {
+    if (is_panning) {
+      window.addEventListener('mousemove', handle_mouse_move);
+      window.addEventListener('mouseup', handle_mouse_up);
+      
+      return () => {
+        window.removeEventListener('mousemove', handle_mouse_move);
+        window.removeEventListener('mouseup', handle_mouse_up);
+      };
+    }
+    return undefined;
+  }, [is_panning, handle_mouse_move, handle_mouse_up]);
+
   if (loading) {
     return (
       <div className={cn('cls_pdf_viewer_loading', className)}>
@@ -168,12 +264,25 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
       ref={container_ref}
       className={cn('cls_pdf_viewer_layout', className)}
       style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
+        // Don't constrain width/height - let content determine size
+        // This allows container to expand beyond viewport when zoomed
         position: 'relative',
         backgroundColor: background_color,
+        cursor: current_tool === null ? (is_panning ? 'grabbing' : 'grab') : 'default',
+        userSelect: is_panning ? 'none' : 'auto',
+        // Allow both horizontal and vertical scrolling
+        overflow: 'auto',
+        overflowX: 'auto',
+        overflowY: 'auto',
+        // Container must be viewport size (100%) to create scrollable area
+        // Content inside (pages_container) expands beyond this to enable scrolling
+        width: '100%',
+        height: '100%',
+        // Don't constrain content expansion
+        minWidth: 0,
+        minHeight: 0,
       }}
+      onMouseDown={handle_mouse_down}
     >
       <div className="cls_pdf_viewer_pages_container">
         {pages.map((page, index) => {
@@ -191,6 +300,11 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
                 marginBottom: '20px',
                 display: 'flex',
                 justifyContent: 'center',
+                // Inherit cursor from parent (grab/grabbing in pan mode)
+                cursor: 'inherit',
+                // Ensure page wrapper doesn't constrain width
+                width: 'auto',
+                minWidth: 'fit-content',
               }}
             >
               {/* PDF Page Renderer */}

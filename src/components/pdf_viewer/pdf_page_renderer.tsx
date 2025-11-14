@@ -93,6 +93,11 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
 
   // Render the page onto the canvas
   useEffect(() => {
+    // Ensure we're in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     if (!page) {
       return;
     }
@@ -101,59 +106,95 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
       return;
     }
 
-    // Cancel any previous render task
-    if (render_task_ref.current) {
-      render_task_ref.current.cancel();
-    }
-
-    // Get the viewport with the current scale
-    const viewport = page.getViewport({ scale });
-
-    // Set up canvas
-    const canvas = canvas_ref.current;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      console.error(`[PdfPageRenderer] Page ${page_index}: Cannot get 2D context`);
-      return;
-    }
-
-    // Handle high DPI displays
-    const output_scale = window.devicePixelRatio || 1;
-
-    // Set native canvas size for sharp rendering
-    // Note: Setting canvas.width/height automatically clears the canvas
-    canvas.width = viewport.width * output_scale;
-    canvas.height = viewport.height * output_scale;
-
-    // Set CSS size (what the browser displays)
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
-
-    // Scale the context to match device pixel ratio
-    context.scale(output_scale, output_scale);
-
-    // Render the page
-    const render_context = {
-      canvasContext: context,
-      viewport: viewport,
+    // Cancel any previous render task and wait for it to complete
+    // This prevents multiple renders on the same canvas (React Strict Mode issue)
+    let cancelled = false;
+    const cancel_previous = async () => {
+      if (render_task_ref.current) {
+        try {
+          render_task_ref.current.cancel();
+          // Wait for cancellation to complete
+          await render_task_ref.current.promise.catch(() => {
+            // Ignore cancellation errors
+          });
+        } catch (error) {
+          // Ignore errors from cancellation
+        }
+        render_task_ref.current = null;
+      }
     };
 
-    const render_task = page.render(render_context);
-    render_task_ref.current = render_task;
+    // Cancel previous render and then start new one
+    cancel_previous().then(() => {
+      // Check if effect was cancelled during async operation
+      if (cancelled || !canvas_ref.current) {
+        return;
+      }
 
-    render_task.promise
-      .then(() => {
-        render_task_ref.current = null;
-      })
-      .catch((error) => {
-        console.error(`[PdfPageRenderer] Page ${page_index}: Error rendering:`, error);
-        render_task_ref.current = null;
-      });
+      // Get the viewport with the current scale
+      const viewport = page.getViewport({ scale });
+
+      // Set up canvas
+      const canvas = canvas_ref.current;
+      const context = canvas.getContext('2d', { alpha: false }); // Disable alpha for better performance
+      if (!context) {
+        console.error(`[PdfPageRenderer] Page ${page_index}: Cannot get 2D context`);
+        return;
+      }
+
+      // Handle high DPI displays
+      const output_scale = window.devicePixelRatio || 1;
+
+      // Set native canvas size for sharp rendering
+      // Note: Setting canvas.width/height automatically clears the canvas
+      // This also invalidates any previous render tasks
+      canvas.width = viewport.width * output_scale;
+      canvas.height = viewport.height * output_scale;
+
+      // Set CSS size (what the browser displays)
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+
+      // Scale the context to match device pixel ratio
+      context.scale(output_scale, output_scale);
+
+      // Render the page
+      const render_context = {
+        canvasContext: context,
+        viewport: viewport,
+      };
+
+      const render_task = page.render(render_context);
+      render_task_ref.current = render_task;
+
+      render_task.promise
+        .then(() => {
+          // Only clear ref if this is still the current render task
+          if (render_task_ref.current === render_task) {
+            render_task_ref.current = null;
+          }
+        })
+        .catch((error) => {
+          // Ignore cancellation errors (expected during cleanup)
+          if (error.name !== 'RenderingCancelledException') {
+            console.error(`[PdfPageRenderer] Page ${page_index}: Error rendering:`, error);
+          }
+          // Only clear ref if this is still the current render task
+          if (render_task_ref.current === render_task) {
+            render_task_ref.current = null;
+          }
+        });
+    });
 
     // Cleanup: cancel rendering if component unmounts or dependencies change
     return () => {
+      cancelled = true;
       if (render_task_ref.current) {
-        render_task_ref.current.cancel();
+        try {
+          render_task_ref.current.cancel();
+        } catch (error) {
+          // Ignore cancellation errors
+        }
         render_task_ref.current = null;
       }
     };
@@ -182,6 +223,8 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
         border: `1px solid ${page_config.page_border_color}`,
         boxShadow: page_config.page_box_shadow,
         backgroundColor: page_config.page_background_color,
+        // Inherit cursor from parent (grab/grabbing in pan mode)
+        cursor: 'inherit',
       }}
     >
       {/* Canvas: The PDF rendering base layer */}

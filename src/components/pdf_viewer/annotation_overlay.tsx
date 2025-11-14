@@ -4,12 +4,11 @@
  * Positioned above the canvas layer
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import type { PdfAnnotation, CoordinateMapper, PageDimensions, PdfViewerConfig } from '../../types';
+import React, { useState, useRef } from 'react';
+import type { PdfAnnotation, CoordinateMapper, PdfViewerConfig } from '../../types';
 import {
   calculate_rectangle_coords,
   is_rectangle_too_small,
-  rectangle_to_pdf_rect,
 } from '../../utils/annotation_utils';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
@@ -141,8 +140,12 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     // Only handle left mouse button
     if (e.button !== 0) return;
 
-    // Only draw if a tool is selected
-    if (!current_tool) return;
+    // In pan mode (current_tool === null), allow panning by not capturing events
+    if (!current_tool) {
+      // Don't prevent default - allow panning to work
+      // The parent container will handle panning
+      return;
+    }
 
     // Get mouse position relative to SVG
     const rect = svg_ref.current?.getBoundingClientRect();
@@ -172,7 +175,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     setCurrentPoint(point);
   };
 
-  const handle_mouse_up = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handle_mouse_up = (_e: React.MouseEvent<SVGSVGElement>) => {
     if (!is_drawing || !start_point || !current_point) return;
 
     setIsDrawing(false);
@@ -254,25 +257,11 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       return;
     }
 
-    // Get all parent elements for hierarchy debugging
-    const svg_element = svg_ref.current;
-    const page_wrapper = svg_element?.parentElement?.parentElement;
-    const pages_container = page_wrapper?.parentElement;
-    const layout_container = pages_container?.parentElement;
-    
-    // Get parent bounding rects
-    const page_wrapper_rect = page_wrapper?.getBoundingClientRect();
-    const pages_container_rect = pages_container?.getBoundingClientRect();
-    const layout_container_rect = layout_container?.getBoundingClientRect();
-
     // Log complete mouse position details
     const mouse_client_x = e.clientX;
     const mouse_client_y = e.clientY;
-    const mouse_page_x = e.pageX;
-    const mouse_page_y = e.pageY;
     const screen_x = e.clientX - rect.left;
     const screen_y = e.clientY - rect.top;
-    const click_time = performance.now();
 
     console.log(`🔵 [AnnotationOverlay] Context menu click: page=${page_index}, clientX=${mouse_client_x}, clientY=${mouse_client_y}, screenX=${screen_x.toFixed(1)}, screenY=${screen_y.toFixed(1)}, svg_rect=(${rect.left.toFixed(1)}, ${rect.top.toFixed(1)}, ${rect.width.toFixed(1)}x${rect.height.toFixed(1)})`);
 
@@ -562,7 +551,11 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         left: 0,
         width: width,
         height: height,
-        cursor: current_tool ? 'crosshair' : 'default',
+        // In pan mode, inherit cursor from parent (grab/grabbing)
+        // In annotation mode, show crosshair
+        cursor: current_tool === null ? 'inherit' : (current_tool ? 'crosshair' : 'default'),
+        // Always allow pointer events so context menu (right-click) works
+        // Left-click panning is handled by returning early in handle_mouse_down
         pointerEvents: 'auto',
         zIndex: 10,
       }}
