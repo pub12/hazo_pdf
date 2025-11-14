@@ -1,0 +1,192 @@
+/**
+ * Main stylesheet for hazo_pdf package
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PDF Viewer Styles */
+.cls_pdf_viewer {
+  @apply w-full h-full flex flex-col;
+}
+
+.cls_pdf_viewer_content {
+  @apply flex-1 overflow-auto;
+}
+
+.cls_pdf_viewer_container {
+  @apply relative w-full h-full overflow-auto;
+}
+
+/* PDF Viewer Toolbar */
+.cls_pdf_viewer_toolbar {
+  @apply flex items-center justify-between p-2 border-b bg-gray-50;
+}
+
+.cls_pdf_viewer_toolbar_group {
+  @apply flex items-center gap-2;
+}
+
+.cls_pdf_viewer_toolbar_button {
+  @apply px-3 py-1 text-sm border rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.cls_pdf_viewer_toolbar_button_active {
+  @apply bg-blue-500 text-white hover:bg-blue-600;
+}
+
+.cls_pdf_viewer_toolbar_button_save {
+  @apply bg-green-500 text-white hover:bg-green-600 border-green-600;
+}
+
+.cls_pdf_viewer_toolbar_button_save:hover:not(:disabled) {
+  @apply bg-green-600;
+}
+
+.cls_pdf_viewer_toolbar_button_disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.cls_pdf_viewer_toolbar_icon {
+  @apply inline-block mr-1;
+}
+
+.cls_pdf_viewer_toolbar_button_text {
+  @apply inline-block;
+}
+
+.cls_pdf_viewer_zoom_level {
+  @apply px-2 text-sm font-medium;
+}
+
+/* PDF Viewer Layout */
+.cls_pdf_viewer_layout {
+  @apply w-full h-full;
+}
+
+.cls_pdf_viewer_pages_container {
+  @apply flex flex-col items-center p-4;
+}
+
+.cls_pdf_viewer_page_wrapper {
+  @apply relative mb-4;
+}
+
+/* PDF Page Renderer */
+.cls_pdf_page_container {
+  @apply relative bg-white;
+}
+
+.cls_pdf_page_canvas {
+  @apply block;
+}
+
+.cls_pdf_page_loading {
+  @apply flex items-center justify-center p-8;
+}
+
+.cls_pdf_page_spinner {
+  @apply text-gray-500;
+}
+
+.cls_pdf_page_rendering_overlay {
+  @apply absolute inset-0 flex items-center justify-center bg-white bg-opacity-50;
+}
+
+.cls_pdf_page_rendering_text {
+  @apply text-gray-600 text-sm;
+}
+
+/* Annotation Overlay */
+.cls_annotation_overlay {
+  @apply absolute top-0 left-0 pointer-events-auto;
+}
+
+/* Loading and Error States */
+.cls_pdf_viewer_loading {
+  @apply flex items-center justify-center p-8;
+}
+
+.cls_pdf_viewer_spinner {
+  @apply text-gray-500;
+}
+
+.cls_pdf_viewer_error {
+  @apply flex items-center justify-center p-8;
+}
+
+.cls_pdf_viewer_error_message {
+  @apply text-red-500;
+}
+
+.cls_pdf_viewer_no_document {
+  @apply text-gray-500 text-center p-8;
+}
+
+/* Context Menu */
+.cls_pdf_viewer_context_menu {
+  @apply bg-white border border-gray-300 rounded shadow-lg;
+}
+
+.cls_pdf_viewer_context_menu_backdrop {
+  @apply fixed inset-0 z-[9999];
+}
+
+.cls_pdf_viewer_context_menu_items {
+  @apply flex flex-col py-1;
+}
+
+.cls_pdf_viewer_context_menu_item {
+  @apply flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.cls_pdf_viewer_context_menu_item_disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.cls_pdf_viewer_context_menu_icon {
+  @apply flex-shrink-0;
+}
+
+.cls_pdf_viewer_context_menu_text {
+  @apply flex-1 text-left;
+}
+
+/* Text Annotation Dialog - Slim Version */
+.cls_pdf_viewer_dialog_backdrop {
+  @apply fixed inset-0 bg-black bg-opacity-20 z-[10000] flex items-center justify-center;
+}
+
+.cls_pdf_viewer_text_dialog {
+  @apply bg-white rounded-md shadow-lg z-[10001] border border-gray-300;
+}
+
+.cls_pdf_viewer_dialog_form {
+  @apply flex items-center gap-1 px-2 py-1;
+}
+
+.cls_pdf_viewer_dialog_input {
+  @apply flex-1 px-2 py-1 text-sm border-0 outline-none bg-transparent placeholder:text-gray-400 min-w-[200px] max-w-[300px];
+}
+
+.cls_pdf_viewer_dialog_buttons {
+  @apply flex items-center gap-1;
+}
+
+.cls_pdf_viewer_dialog_button {
+  @apply p-1 rounded hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors flex items-center justify-center;
+}
+
+.cls_pdf_viewer_dialog_button_submit {
+  @apply text-green-600 hover:bg-green-50;
+}
+
+.cls_pdf_viewer_dialog_button_cancel {
+  @apply text-gray-500 hover:bg-gray-100;
+}
+
+.cls_pdf_viewer_dialog_button_disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+

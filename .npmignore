@@ -1,0 +1,32 @@
+# Source files
+src/
+
+# Configuration files
+tsconfig.json
+tsup.config.ts
+tailwind.config.js
+postcss.config.js
+.eslintrc.json
+
+# Development files
+.cursor/
+.vscode/
+.git/
+.gitignore
+
+# Documentation (keep README.md)
+techdoc.md
+
+# Dependencies
+node_modules/
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Misc
+.DS_Store
+*.log
+
