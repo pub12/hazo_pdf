@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, X } from 'lucide-react';
+import { Check, X, Trash2 } from 'lucide-react';
 import type { PdfViewerConfig } from '../../types';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
@@ -29,8 +29,14 @@ export interface TextAnnotationDialogProps {
   /** Callback when text is submitted */
   on_submit: (text: string) => void;
   
+  /** Callback when annotation is deleted (only used in edit mode) */
+  on_delete?: () => void;
+  
   /** Initial text value */
   initial_text?: string;
+  
+  /** Whether this is editing an existing annotation (shows delete button) */
+  is_editing?: boolean;
   
   /** Configuration object for styling */
   config?: PdfViewerConfig | null;
@@ -46,7 +52,9 @@ export const TextAnnotationDialog: React.FC<TextAnnotationDialogProps> = ({
   y,
   on_close,
   on_submit,
+  on_delete,
   initial_text = '',
+  is_editing = false,
   config = null,
 }) => {
   const [text, setText] = useState(initial_text);
@@ -87,6 +95,15 @@ export const TextAnnotationDialog: React.FC<TextAnnotationDialogProps> = ({
   const handle_cancel = () => {
     setText('');
     on_close();
+  };
+
+  // Handle delete
+  const handle_delete = () => {
+    if (on_delete) {
+      on_delete();
+      setText('');
+      on_close();
+    }
   };
 
   // Handle keyboard events
@@ -158,6 +175,30 @@ export const TextAnnotationDialog: React.FC<TextAnnotationDialogProps> = ({
             autoFocus
           />
           <div className="cls_pdf_viewer_dialog_buttons">
+            {/* Delete button - only shown when editing */}
+            {is_editing && on_delete && (
+              <button
+                type="button"
+                onClick={handle_delete}
+                className={cn(
+                  'cls_pdf_viewer_dialog_button',
+                  'cls_pdf_viewer_dialog_button_delete'
+                )}
+                style={{
+                  color: dialog_config.dialog_button_cancel_color,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.color = dialog_config.dialog_button_cancel_color_hover;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.color = dialog_config.dialog_button_cancel_color;
+                }}
+                aria-label="Delete annotation"
+                title="Delete annotation"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
             <button
               type="button"
               onClick={handle_cancel}

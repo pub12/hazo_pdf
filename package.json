@@ -62,6 +62,7 @@
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
+    "concurrently": "^8.2.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "autoprefixer": "^10.4.17",
@@ -86,7 +87,7 @@
     "prepublishOnly": "npm run build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test-app:dev": "next dev",
+    "test-app:dev": "concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
     "test-app:build": "next build",
     "test-app:start": "next start"
   }

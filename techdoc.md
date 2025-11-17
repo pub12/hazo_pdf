@@ -60,11 +60,13 @@ hazo_pdf/
 - **Web Workers**: PDF processing happens off main thread
 
 ### Export Strategy
+- Package exports always resolve to the compiled artifacts in `dist/` (even during development). This prevents bundlers from pulling Node-only modules (e.g., `fs` via `hazo_config`) into the browser.
+- During development, `tsup --watch` keeps `dist/` up-to-date so consumers—like the embedded Next.js app—still see the latest source changes without manually rebuilding.
 - Main component: `PdfViewer`
 - Sub-components: `PdfViewerLayout`, `PdfPageRenderer`, `AnnotationOverlay`
 - Utilities: `load_pdf_document`, `generate_xfdf`, `export_annotations_to_xfdf`
 - Styles: `styles.css` (separate export)
-- Types: Exported for TypeScript consumers
+- Types: Exported for TypeScript consumers via `dist/index.d.ts`
 
 ## Components
 
@@ -145,6 +147,8 @@ hazo_pdf/
 - Temporary drawing box visualization
 - Coordinate conversion (Screen ↔ PDF)
 - Annotation rendering
+- Left-click edit hooks that dispatch `on_annotation_click` directly from SVG hit tests and overlay rects
+- Native event markers (`__annotation_clicked`, `__annotation_click_source`) to keep pan mode from hijacking annotation clicks and to aid console debugging
 
 ### PdfWorkerSetup
 **File**: `src/components/pdf_viewer/pdf_worker_setup.ts`
@@ -252,6 +256,12 @@ The Web Worker is used for CPU-intensive PDF operations:
 - **FreeText**: Free text annotations
 - **CustomBookmark**: Custom bookmarks
 
+### Annotation Interaction Debugging
+- FreeText and rectangle overlay rects set `__annotation_clicked` / `__annotation_click_source` on the native mouse event before stopping propagation.  
+- `AnnotationOverlay` emits a single concise log (`🟢 [AnnotationClick] origin=...`) whenever it dispatches a click to React, so engineers can confirm the handoff without noise.  
+- `PdfViewerLayout` inspects those markers to skip pan mode and logs the same annotation id when it suppresses dragging; `PdfViewer` logs (`🟠 [AnnotationClick] ...`) when it opens the editor dialog.  
+- Removing capture-phase listeners keeps React's synthetic events intact; debugging now focuses on SVG hit tests and overlay rect handlers.
+
 ### Annotation Creation Flow
 1. User draws on overlay (mouse down, move, up)
 2. Screen coordinates converted to PDF coordinates
@@ -314,9 +324,13 @@ npm run build-storybook  # Build static Storybook
 ### Local Development
 ```bash
 npm install
-npm run dev  # Watch mode for development
-npm run storybook  # Start Storybook
+npm run test-app:dev  # tsup --watch + next dev (test app)
+npm run storybook     # Start Storybook
 ```
+
+`test-app:dev` launches two processes via `concurrently`:
+- `npm run dev` → `tsup --watch` (rebuilds `dist/` whenever `src/` changes)
+- `next dev` → serves the test application with live reload
 
 ### Building
 ```bash

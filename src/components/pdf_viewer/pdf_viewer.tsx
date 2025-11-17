@@ -63,7 +63,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       load_pdf_config_async(config_file)
         .then(config => {
           config_ref.current = config;
-          console.log(`[PdfViewer] Config loaded in browser, background_color: "${config.freetext_annotation.freetext_background_color}", opacity: ${config.freetext_annotation.freetext_background_opacity}`);
         })
         .catch(error => {
           console.warn(`[PdfViewer] Could not load config file "${config_file}", using defaults:`, error);
@@ -72,7 +71,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     } else {
       // Node.js: use hazo_config (preferred method)
       config_ref.current = load_pdf_config(config_file);
-      console.log(`[PdfViewer] Config loaded using hazo_config, background_color: "${config_ref.current?.freetext_annotation.freetext_background_color}", opacity: ${config_ref.current?.freetext_annotation.freetext_background_opacity}`);
     }
   }, [config_file]);
   
@@ -106,6 +104,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     screen_x: number;
     screen_y: number;
     mapper?: CoordinateMapper;
+    editing_annotation?: PdfAnnotation; // Annotation being edited (if any)
   } | null>(null);
 
   // Initialize history when initial annotations change
@@ -131,7 +130,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       return;
     }
 
-    console.log('PdfViewer: Loading PDF from URL:', url);
     setLoading(true);
     setError(null);
 
@@ -140,7 +138,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     const load_timeout = setTimeout(() => {
       load_pdf_document(url)
         .then((document) => {
-          console.log('PdfViewer: PDF loaded successfully, pages:', document.numPages);
           setPdfDocument(document);
           setLoading(false);
           if (on_load) {
@@ -164,23 +161,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     };
   }, [url, on_load, on_error]);
 
-  // Debug: Log mouse position on left mouse button click
-  useEffect(() => {
-    const handle_mouse_click = (e: MouseEvent) => {
-      // Only log left mouse button clicks
-      if (e.button === 0) {
-        console.log(`🖱️ Mouse click: x=${e.clientX}, y=${e.clientY}`);
-      }
-    };
-
-    // Add event listener to window
-    window.addEventListener('mousedown', handle_mouse_click);
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('mousedown', handle_mouse_click);
-    };
-  }, []);
+  // Previously logged global mouse clicks for debugging; removed for cleaner console.
 
   // Save to history when annotations change (but not when applying undo/redo)
   const save_to_history = (new_annotations: PdfAnnotation[]) => {
@@ -213,9 +194,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  // Handle annotation update (for future use)
-  // Prefixed with _ to indicate intentionally unused
-  const _handle_annotation_update = (annotation: PdfAnnotation) => {
+  // Handle annotation update
+  const handle_annotation_update = (annotation: PdfAnnotation) => {
     const updated_annotations = annotations.map((ann) =>
       ann.id === annotation.id ? annotation : ann
     );
@@ -226,9 +206,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  // Handle annotation delete (for future use)
-  // Prefixed with _ to indicate intentionally unused
-  const _handle_annotation_delete = (annotation_id: string) => {
+  // Handle annotation delete
+  const handle_annotation_delete = (annotation_id: string) => {
     const filtered_annotations = annotations.filter(
       (ann) => ann.id !== annotation_id
     );
@@ -238,11 +217,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       on_annotation_delete(annotation_id);
     }
   };
-
-  // Reference unused handlers to suppress TypeScript errors
-  // These are kept for future functionality
-  void _handle_annotation_update;
-  void _handle_annotation_delete;
 
   // Handle undo
   const handle_undo = useCallback(() => {
@@ -519,11 +493,32 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           background_color={effective_background_color}
           config={config_ref.current}
           on_annotation_create={handle_annotation_create}
+          on_annotation_click={(annotation, screen_x, screen_y, mapper) => {
+            console.log(
+              `🟠 [AnnotationClick] opening editor id=${annotation.id}, page=${annotation.page_index}, screen=(${screen_x.toFixed(
+                1
+              )}, ${screen_y.toFixed(1)})`
+            );
+            const dialog_x = window.innerWidth / 2; // Center horizontally
+            const dialog_y = Math.max(50, screen_y); // Position near annotation, but at least 50px from top
+            
+            // Open text dialog for editing
+            // For FreeText annotations, show existing text
+            // For other annotations, show empty dialog (they don't have text)
+            setTextDialog({
+              open: true,
+              page_index: annotation.page_index,
+              x: dialog_x,
+              y: dialog_y,
+              screen_x,
+              screen_y,
+              mapper,
+              editing_annotation: annotation,
+            });
+          }}
           on_context_menu={(e, page_index, screen_x, screen_y, mapper) => {
             const menu_x = e.clientX;
             const menu_y = e.clientY;
-            
-            console.log(`🟢 [PdfViewer] Context menu state set: page=${page_index}, x=${menu_x}, y=${menu_y}, screenX=${screen_x.toFixed(1)}, screenY=${screen_y.toFixed(1)}, valid=${isFinite(menu_x) && isFinite(menu_y)}`);
             
             setContextMenu({
               visible: true,
@@ -583,19 +578,36 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           x={text_dialog.x}
           y={text_dialog.y}
           config={config_ref.current}
+          initial_text={text_dialog.editing_annotation?.contents || ''}
+          is_editing={!!text_dialog.editing_annotation}
           on_close={() => setTextDialog(null)}
+          on_delete={() => {
+            if (text_dialog.editing_annotation) {
+              handle_annotation_delete(text_dialog.editing_annotation.id);
+            }
+            setTextDialog(null);
+          }}
           on_submit={(text) => {
             if (!text_dialog || !text_dialog.mapper) return;
             
-            // Log the original click coordinates before conversion
-            console.log(`🖱️ [PdfViewer] Creating FreeText annotation: click_screen=(${text_dialog.screen_x.toFixed(1)}, ${text_dialog.screen_y.toFixed(1)}), dialog_viewport=(${text_dialog.x.toFixed(1)}, ${text_dialog.y.toFixed(1)}), page=${text_dialog.page_index}`);
+            // Check if we're editing an existing annotation
+            if (text_dialog.editing_annotation) {
+              // Update existing annotation
+              const updated_annotation: PdfAnnotation = {
+                ...text_dialog.editing_annotation,
+                contents: text,
+                date: new Date().toISOString(), // Update modification date
+              };
+              
+              handle_annotation_update(updated_annotation);
+              setTextDialog(null);
+              return;
+            }
             
+            // Create new annotation (existing code)
             // Convert screen coordinates to PDF coordinates
             // This gives us the exact click position in PDF space
             const [pdf_x, pdf_y] = text_dialog.mapper.to_pdf(text_dialog.screen_x, text_dialog.screen_y);
-            
-            // Log PDF coordinates
-            console.log(`📄 [PdfViewer] Converted to PDF coords: pdf=(${pdf_x.toFixed(1)}, ${pdf_y.toFixed(1)}), from screen=(${text_dialog.screen_x.toFixed(1)}, ${text_dialog.screen_y.toFixed(1)})`);
             
             // Create a text annotation at the clicked position
             //
@@ -650,8 +662,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               contents: text,
               color: text_color,
             };
-            
-            console.log(`✅ [PdfViewer] Created annotation: id=${annotation.id}, rect=[${pdf_x.toFixed(1)}, ${pdf_y.toFixed(1)}, ${(pdf_x + placeholder_width).toFixed(1)}, ${(pdf_y + placeholder_height).toFixed(1)}]`);
             
             handle_annotation_create(annotation);
             setTextDialog(null);

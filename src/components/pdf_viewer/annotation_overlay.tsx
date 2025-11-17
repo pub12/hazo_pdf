@@ -39,6 +39,9 @@ export interface AnnotationOverlayProps {
   /** Callback when right-click occurs */
   on_context_menu?: (event: React.MouseEvent, screen_x: number, screen_y: number) => void;
   
+  /** Callback when annotation is clicked */
+  on_annotation_click?: (annotation: PdfAnnotation, screen_x: number, screen_y: number) => void;
+  
   /** Configuration object for styling */
   config?: PdfViewerConfig | null;
   
@@ -122,30 +125,98 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   current_tool = 'Square',
   on_annotation_create,
   on_context_menu,
+  on_annotation_click,
   config = null,
   className = '',
 }) => {
   const [is_drawing, setIsDrawing] = useState(false);
   const [start_point, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [current_point, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
+  const [hovered_annotation_id, setHoveredAnnotationId] = useState<string | null>(null);
   const svg_ref = useRef<SVGSVGElement>(null);
+
+  /**
+   * Emit a concise debug log whenever we dispatch an annotation click.
+   * This helps confirm left-click routing without flooding the console.
+   */
+  const log_annotation_click = (
+    annotation: PdfAnnotation,
+    origin: string,
+    point: { x: number; y: number }
+  ) => {
+    console.log(
+      `🟢 [AnnotationClick] origin=${origin}, id=${annotation.id}, page=${annotation.page_index}, screen=(${point.x.toFixed(
+        1
+      )}, ${point.y.toFixed(1)})`
+    );
+  };
 
   // Filter annotations for this page
   const page_annotations = annotations.filter(
     (ann) => ann.page_index === page_index
   );
 
+  // Check if a point is inside an annotation
+  const is_point_in_annotation = (
+    point: { x: number; y: number },
+    annotation: PdfAnnotation
+  ): boolean => {
+    // Convert PDF coordinates to screen coordinates
+    const [screen_x1, screen_y1] = map_coords.to_screen(
+      annotation.rect[0],
+      annotation.rect[1]
+    );
+    const [screen_x2, screen_y2] = map_coords.to_screen(
+      annotation.rect[2],
+      annotation.rect[3]
+    );
+
+    // For FreeText annotations, calculate box dimensions
+    if (annotation.type === 'FreeText') {
+      const fonts_config = config?.fonts || default_config.fonts;
+      const freetext_config = config?.freetext_annotation || default_config.freetext_annotation;
+      
+      const text = annotation.contents || '';
+      if (!text) return false;
+      
+      const font_size = fonts_config.freetext_font_size_default;
+      const padding_h = freetext_config.freetext_padding_horizontal;
+      const padding_v = freetext_config.freetext_padding_vertical;
+      const text_width_estimate = font_size * 0.6 * text.length;
+      const box_width = text_width_estimate + (padding_h * 2);
+      const box_height = font_size + (padding_v * 2);
+      
+      const box_x = screen_x1;
+      const box_y = screen_y1;
+      
+      // Check if point is inside the box
+      return (
+        point.x >= box_x &&
+        point.x <= box_x + box_width &&
+        point.y >= box_y &&
+        point.y <= box_y + box_height
+      );
+    }
+    
+    // For rectangle annotations (Square, Highlight)
+    const screen_x = Math.min(screen_x1, screen_x2);
+    const screen_y = Math.min(screen_y1, screen_y2);
+    const screen_width = Math.abs(screen_x2 - screen_x1);
+    const screen_height = Math.abs(screen_y2 - screen_y1);
+    
+    // Check if point is inside the rectangle
+    return (
+      point.x >= screen_x &&
+      point.x <= screen_x + screen_width &&
+      point.y >= screen_y &&
+      point.y <= screen_y + screen_height
+    );
+  };
+
   // Mouse event handlers
   const handle_mouse_down = (e: React.MouseEvent<SVGSVGElement>) => {
     // Only handle left mouse button
     if (e.button !== 0) return;
-
-    // In pan mode (current_tool === null), allow panning by not capturing events
-    if (!current_tool) {
-      // Don't prevent default - allow panning to work
-      // The parent container will handle panning
-      return;
-    }
 
     // Get mouse position relative to SVG
     const rect = svg_ref.current?.getBoundingClientRect();
@@ -155,6 +226,41 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
+
+    // CRITICAL: Check if clicking on an existing annotation FIRST
+    // This must happen before any other mode checking (pan/drawing)
+    // Annotations should be clickable in ALL modes (pan, Square, Highlight, etc.)
+    // Only handle left mouse button - right-click is handled by context menu
+    if (e.button === 0 && on_annotation_click) {
+      for (const annotation of page_annotations) {
+        if (is_point_in_annotation(point, annotation)) {
+          
+          // Mark event so pan handler knows an annotation was clicked
+          (e.nativeEvent as any).__annotation_clicked = annotation.id;
+          (e.nativeEvent as any).__annotation_click_source = 'svg_hit_test';
+          
+          // Stop all event propagation - prevent pan mode and drawing from starting
+          e.preventDefault();
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation(); // Also stop immediate propagation
+          // Call click handler with annotation and screen coordinates
+          log_annotation_click(annotation, 'svg_hit_test', point);
+          on_annotation_click(annotation, point.x, point.y);
+          return;
+        }
+      }
+    } else if (e.button !== 0) {
+      // Right-click or other buttons - let context menu handler process it
+      return;
+    } else if (!on_annotation_click) {
+      console.warn(`⚠️ [AnnotationOverlay] on_annotation_click not provided`);
+    }
+
+    // In pan mode (current_tool === null), allow panning by not capturing events
+    if (!current_tool) {
+      // Do not stop propagation; allow parent to handle pan
+      return;
+    }
 
     setIsDrawing(true);
     setStartPoint(point);
@@ -263,8 +369,6 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     const screen_x = e.clientX - rect.left;
     const screen_y = e.clientY - rect.top;
 
-    console.log(`🔵 [AnnotationOverlay] Context menu click: page=${page_index}, clientX=${mouse_client_x}, clientY=${mouse_client_y}, screenX=${screen_x.toFixed(1)}, screenY=${screen_y.toFixed(1)}, svg_rect=(${rect.left.toFixed(1)}, ${rect.top.toFixed(1)}, ${rect.width.toFixed(1)}x${rect.height.toFixed(1)})`);
-
     // Call parent handler with event and screen coordinates
     on_context_menu(e, screen_x, screen_y);
   };
@@ -291,28 +395,12 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     const screen_width = Math.abs(screen_x2 - screen_x1);
     const screen_height = Math.abs(screen_y2 - screen_y1);
     
-    // Log coordinate conversion for FreeText annotations (for debugging)
-    if (annotation.type === 'FreeText') {
-      console.log(`🔄 [AnnotationOverlay] Converting FreeText annotation: pdf_rect=[${annotation.rect[0].toFixed(1)}, ${annotation.rect[1].toFixed(1)}, ${annotation.rect[2].toFixed(1)}, ${annotation.rect[3].toFixed(1)}], screen_coords=(${screen_x1.toFixed(1)}, ${screen_y1.toFixed(1)}) -> (${screen_x2.toFixed(1)}, ${screen_y2.toFixed(1)}), min=(${screen_x.toFixed(1)}, ${screen_y.toFixed(1)})`);
-    }
-
     // Get config values or use defaults
     const fonts_config = config?.fonts || default_config.fonts;
     const highlight_config = config?.highlight_annotation || default_config.highlight_annotation;
     const square_config = config?.square_annotation || default_config.square_annotation;
     const freetext_config = config?.freetext_annotation || default_config.freetext_annotation;
     
-    // Debug: Log config values being used for rendering
-    if (annotation.type === 'FreeText' && annotation.id) {
-      console.log(`[AnnotationOverlay] Config values for FreeText:`, {
-        font_foreground_color: fonts_config.font_foreground_color,
-        freetext_text_color: freetext_config.freetext_text_color,
-        freetext_background_color: freetext_config.freetext_background_color,
-        freetext_background_opacity: freetext_config.freetext_background_opacity,
-        annotation_color: annotation.color,
-      });
-    }
-
     // Helper to convert hex color to rgba
     const hex_to_rgba = (hex: string, opacity: number): string => {
       const r = parseInt(hex.slice(1, 3), 16);
@@ -401,14 +489,6 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       const has_border = freetext_config.freetext_border_width > 0 && border_color_trimmed !== '';
       const has_background = background_color_trimmed !== '';
       
-      // Debug: Log config values for troubleshooting
-      if (annotation.id) {
-        console.log(`🎨 [FreeText] Background config: raw="${freetext_config.freetext_background_color}", trimmed="${background_color_trimmed}", has_background=${has_background}, opacity=${freetext_config.freetext_background_opacity}`);
-      }
-      
-      // Debug: Log border/box position and dimensions
-      console.log(`📦 [FreeText] Border position: top-left=(${box_x.toFixed(1)}, ${box_y.toFixed(1)}), top-right=(${(box_x + box_width).toFixed(1)}, ${box_y.toFixed(1)}), bottom-right=(${(box_x + box_width).toFixed(1)}, ${(box_y + box_height).toFixed(1)}), width=${box_width.toFixed(1)}, height=${box_height.toFixed(1)}, text_width_est=${text_width_estimate.toFixed(1)}, font_size=${font_size.toFixed(1)}, text="${text}", padding_h=${padding_h}, padding_v=${padding_v}, has_border=${has_border}, has_background=${has_background}, using_screen_x1_y1=(${screen_x1.toFixed(1)}, ${screen_y1.toFixed(1)}), screen_x2_y2=(${screen_x2.toFixed(1)}, ${screen_y2.toFixed(1)}), Math.min_result=(${screen_x.toFixed(1)}, ${screen_y.toFixed(1)})`);
-      
       // Helper to convert hex/rgb to rgba for background
       // Supports both hex (#RRGGBB) and rgb(r, g, b) formats
       const hex_to_rgba_bg = (color_str: string, opacity: number): string => {
@@ -478,6 +558,59 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             />
           )}
           
+          {/* Clickable overlay for FreeText annotations */}
+          <rect
+            x={box_x}
+            y={box_y}
+            width={box_width}
+            height={box_height}
+            fill="transparent"
+            stroke="none"
+            pointerEvents="auto"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => {
+              setHoveredAnnotationId(annotation.id);
+              // Change SVG cursor when hovering over annotation
+              if (svg_ref.current) {
+                svg_ref.current.style.cursor = 'pointer';
+              }
+            }}
+            onMouseLeave={() => {
+              setHoveredAnnotationId(null);
+              // Restore SVG cursor when leaving annotation
+              if (svg_ref.current) {
+                if (current_tool === null) {
+                  svg_ref.current.style.cursor = 'inherit';
+                } else {
+                  svg_ref.current.style.cursor = current_tool ? 'crosshair' : 'default';
+                }
+              }
+            }}
+            onMouseDown={(e) => {
+              // This handler is now the primary click detector for annotations
+              if (e.button !== 0) return; // Only handle left-click
+              // Mark native event for upstream listeners
+              (e.nativeEvent as any).__annotation_clicked = annotation.id;
+              (e.nativeEvent as any).__annotation_click_source = 'freetext_rect';
+              e.stopPropagation(); // Stop event from bubbling to the SVG's onMouseDown
+              e.nativeEvent.stopImmediatePropagation();
+
+              if (on_annotation_click) {
+                const rect = svg_ref.current?.getBoundingClientRect();
+                if (!rect) return;
+                const click_x = e.clientX - rect.left;
+                const click_y = e.clientY - rect.top;
+                log_annotation_click(annotation, 'freetext_rect', { x: click_x, y: click_y });
+                on_annotation_click(annotation, click_x, click_y);
+              }
+            }}
+            onClick={(e) => {
+              // Also handle onClick as backup
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+          
           {/* Text content - positioned with padding (always rendered, even if no border/background) */}
           <text
             x={text_x}
@@ -527,17 +660,71 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     const { fill, stroke } = get_annotation_props();
 
     return (
-      <rect
-        key={annotation.id}
-        x={screen_x}
-        y={screen_y}
-        width={screen_width}
-        height={screen_height}
-        stroke={stroke}
-        strokeWidth="2"
-        fill={fill}
-        pointerEvents="none"
-      />
+      <g key={annotation.id}>
+        {/* Clickable overlay for rectangle annotations */}
+        <rect
+          x={screen_x}
+          y={screen_y}
+          width={screen_width}
+          height={screen_height}
+          fill="transparent"
+          stroke="none"
+          pointerEvents="auto"
+          style={{ cursor: 'pointer' }}
+          onMouseEnter={() => {
+            setHoveredAnnotationId(annotation.id);
+            // Change SVG cursor when hovering over annotation
+            if (svg_ref.current) {
+              svg_ref.current.style.cursor = 'pointer';
+            }
+          }}
+          onMouseLeave={() => {
+            setHoveredAnnotationId(null);
+            // Restore SVG cursor when leaving annotation
+            if (svg_ref.current) {
+              if (current_tool === null) {
+                svg_ref.current.style.cursor = 'inherit';
+              } else {
+                svg_ref.current.style.cursor = current_tool ? 'crosshair' : 'default';
+              }
+            }
+          }}
+          onMouseDown={(e) => {
+            // This handler is now the primary click detector for annotations
+            if (e.button !== 0) return; // Only handle left-click
+            // Mark native event for upstream listeners
+            (e.nativeEvent as any).__annotation_clicked = annotation.id;
+            (e.nativeEvent as any).__annotation_click_source = 'rect_overlay';
+            e.stopPropagation(); // Stop event from bubbling to the SVG's onMouseDown
+            e.nativeEvent.stopImmediatePropagation();
+
+            if (on_annotation_click) {
+              const rect = svg_ref.current?.getBoundingClientRect();
+              if (!rect) return;
+              const click_x = e.clientX - rect.left;
+              const click_y = e.clientY - rect.top;
+              log_annotation_click(annotation, 'rect_overlay', { x: click_x, y: click_y });
+              on_annotation_click(annotation, click_x, click_y);
+            }
+          }}
+          onClick={(e) => {
+            // Also handle onClick as backup
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        />
+        {/* Visual annotation rectangle */}
+        <rect
+          x={screen_x}
+          y={screen_y}
+          width={screen_width}
+          height={screen_height}
+          stroke={stroke}
+          strokeWidth="2"
+          fill={fill}
+          pointerEvents="none"
+        />
+      </g>
     );
   };
 
@@ -551,20 +738,27 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         left: 0,
         width: width,
         height: height,
-        // In pan mode, inherit cursor from parent (grab/grabbing)
+        // Cursor will be dynamically updated by onMouseEnter/Leave on annotations
+        // Default: In pan mode, inherit cursor from parent (grab/grabbing)
         // In annotation mode, show crosshair
-        cursor: current_tool === null ? 'inherit' : (current_tool ? 'crosshair' : 'default'),
-        // Always allow pointer events so context menu (right-click) works
+        cursor: hovered_annotation_id 
+          ? 'pointer' 
+          : (current_tool === null ? 'inherit' : (current_tool ? 'crosshair' : 'default')),
+        // Always allow pointer events so context menu (right-click) and annotation clicks work
         // Left-click panning is handled by returning early in handle_mouse_down
         pointerEvents: 'auto',
-        zIndex: 10,
+        zIndex: 10, // Ensure annotations are above the canvas but below dialogs
       }}
       width={width}
       height={height}
       onMouseDown={handle_mouse_down}
       onMouseMove={handle_mouse_move}
       onMouseUp={handle_mouse_up}
-      onMouseLeave={handle_mouse_leave}
+      onMouseLeave={(e) => {
+        // Reset hover state when mouse leaves SVG entirely
+        setHoveredAnnotationId(null);
+        handle_mouse_leave(e);
+      }}
       onContextMenu={handle_context_menu}
     >
       {/* Render existing annotations */}

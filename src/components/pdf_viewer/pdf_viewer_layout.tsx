@@ -15,37 +15,15 @@ import { cn } from '../../utils/cn';
  * Props for PdfViewerLayout component
  */
 export interface PdfViewerLayoutProps {
-  /** PDF document proxy */
   pdf_document: PDFDocumentProxy;
-  
-  /** Initial zoom level */
   scale: number;
-  
-  /** Existing annotations */
-  annotations?: PdfAnnotation[];
-  
-  /** Current annotation tool */
-  current_tool?: 'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null;
-  
-  /** Callback when annotation is created */
-  on_annotation_create?: (annotation: PdfAnnotation) => void;
-  
-  /** Callback when right-click occurs - provides mapper for coordinate conversion */
-  on_context_menu?: (
-    event: React.MouseEvent,
-    page_index: number,
-    screen_x: number,
-    screen_y: number,
-    mapper: CoordinateMapper
-  ) => void;
-  
-  /** Background color for areas outside PDF pages */
+  annotations: PdfAnnotation[];
+  current_tool: string | null;
+  on_annotation_create: (annotation: PdfAnnotation) => void;
+  on_context_menu: (e: React.MouseEvent, page_index: number, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
+  on_annotation_click: (annotation: PdfAnnotation, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
   background_color?: string;
-  
-  /** Configuration object for styling */
-  config?: PdfViewerConfig | null;
-  
-  /** Optional class name */
+  config: PdfViewerConfig | null;
   className?: string;
 }
 
@@ -60,6 +38,7 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   current_tool = 'Square',
   on_annotation_create,
   on_context_menu,
+  on_annotation_click,
   background_color = '#2d2d2d',
   config = null,
   className = '',
@@ -79,11 +58,8 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   // Load all pages from the PDF document
   useEffect(() => {
     if (!pdf_document) {
-      console.log('[PdfViewerLayout] No PDF document provided');
       return;
     }
-
-    console.log('[PdfViewerLayout] Loading pages from PDF document, total pages:', pdf_document.numPages);
     setLoading(true);
     const num_pages = pdf_document.numPages;
     const page_promises: Promise<PDFPageProxy>[] = [];
@@ -94,7 +70,6 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
 
     Promise.all(page_promises)
       .then((loaded_pages) => {
-        console.log('[PdfViewerLayout] Successfully loaded', loaded_pages.length, 'pages');
         setPages(loaded_pages);
         setLoading(false);
         // Reset centered flag when PDF document changes
@@ -145,7 +120,6 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
         if (scroll_width > client_width) {
           const center_scroll = (scroll_width - client_width) / 2;
           container.scrollLeft = center_scroll;
-          console.log(`[PdfViewerLayout] Centered horizontal scroll: scrollWidth=${scroll_width}, clientWidth=${client_width}, scrollLeft=${center_scroll.toFixed(1)}`);
           has_centered_ref.current = true;
         } else {
           // Content fits, mark as centered anyway
@@ -164,17 +138,16 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
     // Only handle left mouse button
     if (e.button !== 0) return;
     
-    // Only pan when no tool is selected (pan mode)
-    if (current_tool !== null) return;
-    
-    // Don't pan if clicking on interactive elements (buttons, inputs, etc.)
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('a')) {
+    const native_event = e.nativeEvent as unknown as { __annotation_clicked?: string; __annotation_click_source?: string };
+    if (native_event?.__annotation_clicked) {
+      console.log(
+        `🟢 [AnnotationClick] layout received marker id=${native_event.__annotation_clicked}, source=${native_event.__annotation_click_source || 'unknown'}`
+      );
       return;
     }
     
-    // Allow panning even if clicking on annotation overlay in pan mode
-    // The overlay's handle_mouse_down will return early in pan mode
+    // Only pan when no tool is selected (pan mode)
+    if (current_tool !== null) return;
     
     if (container_ref.current) {
       setIsPanning(true);
@@ -188,9 +161,6 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
       e.stopPropagation(); // Prevent event bubbling
       container_ref.current.style.cursor = 'grabbing';
       
-      // Debug: Log pan start with scroll info
-      const pages_container = container_ref.current.querySelector('.cls_pdf_viewer_pages_container') as HTMLElement;
-      console.log(`[Pan Start] scrollLeft=${container_ref.current.scrollLeft.toFixed(1)}, scrollTop=${container_ref.current.scrollTop.toFixed(1)}, scrollWidth=${container_ref.current.scrollWidth}, clientWidth=${container_ref.current.clientWidth}, scrollHeight=${container_ref.current.scrollHeight}, clientHeight=${container_ref.current.clientHeight}, pagesContainerWidth=${pages_container?.offsetWidth || 'N/A'}, pagesContainerScrollWidth=${pages_container?.scrollWidth || 'N/A'}, containerOffsetWidth=${container_ref.current.offsetWidth}`);
     }
   }, [current_tool]);
 
@@ -214,8 +184,6 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
     container_ref.current.scrollLeft = new_scroll_left;
     container_ref.current.scrollTop = new_scroll_top;
     
-    // Debug: Log scroll values to troubleshoot horizontal scrolling
-    console.log(`[Pan] delta_x=${delta_x.toFixed(1)}, delta_y=${delta_y.toFixed(1)}, scrollLeft=${new_scroll_left.toFixed(1)} (max=${max_scroll_left.toFixed(1)}), scrollTop=${new_scroll_top.toFixed(1)} (max=${max_scroll_top.toFixed(1)}), scrollWidth=${container_ref.current.scrollWidth}, clientWidth=${container_ref.current.clientWidth}, scrollHeight=${container_ref.current.scrollHeight}, clientHeight=${container_ref.current.clientHeight}, canScrollHorizontally=${container_ref.current.scrollWidth > container_ref.current.clientWidth}, canScrollVertically=${container_ref.current.scrollHeight > container_ref.current.clientHeight}`);
   }, [is_panning]);
 
   const handle_mouse_up = useCallback(() => {
@@ -251,6 +219,9 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
     return undefined;
   }, [is_panning, handle_mouse_move, handle_mouse_up]);
 
+  // AnnotationOverlay now handles annotation clicks directly and stamps native events.
+  // The container only pans when those markers are absent, preventing accidental grab mode.
+
   if (loading) {
     return (
       <div className={cn('cls_pdf_viewer_loading', className)}>
@@ -268,6 +239,7 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
         // This allows container to expand beyond viewport when zoomed
         position: 'relative',
         backgroundColor: background_color,
+        // Cursor is managed dynamically - default to grab in pan mode, but annotations will override
         cursor: current_tool === null ? (is_panning ? 'grabbing' : 'grab') : 'default',
         userSelect: is_panning ? 'none' : 'auto',
         // Allow both horizontal and vertical scrolling
@@ -283,6 +255,20 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
         minHeight: 0,
       }}
       onMouseDown={handle_mouse_down}
+      onMouseMove={(e) => {
+        // Check if mouse is over an annotation overlay
+        // If so, don't override cursor - let the annotation overlay manage it
+        const target = e.target as HTMLElement;
+        if (target.closest('svg.cls_annotation_overlay') || target.closest('rect[style*="cursor: pointer"]')) {
+          // Don't override cursor - annotation overlay will handle it
+          return;
+        }
+        
+        // Update cursor for pan mode if not over annotation
+        if (container_ref.current && current_tool === null && !is_panning) {
+          container_ref.current.style.cursor = 'grab';
+        }
+      }}
     >
       <div className="cls_pdf_viewer_pages_container">
         {pages.map((page, index) => {
@@ -318,7 +304,7 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
                 }
               />
 
-              {/* Annotation Overlay */}
+              {/* Annotation Overlay - Must be positioned absolutely to overlay the canvas */}
               {mapper_data && (
                 <AnnotationOverlay
                   width={mapper_data.dimensions.width}
@@ -332,6 +318,11 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
                   on_context_menu={(e, screen_x, screen_y) => {
                     if (on_context_menu && mapper_data.mapper) {
                       on_context_menu(e, index, screen_x, screen_y, mapper_data.mapper);
+                    }
+                  }}
+                  on_annotation_click={(annotation, screen_x, screen_y) => {
+                    if (on_annotation_click && mapper_data.mapper) {
+                      on_annotation_click(annotation, screen_x, screen_y, mapper_data.mapper);
                     }
                   }}
                 />
