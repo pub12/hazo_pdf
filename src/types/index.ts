@@ -47,6 +47,18 @@ export interface PdfViewerProps {
   
   /** Optional path to configuration INI file (e.g., "hazo_pdf_config.ini") */
   config_file?: string;
+  
+  /** Whether to append timestamp to annotated text edits (default: false) */
+  append_timestamp_to_text_edits?: boolean;
+  
+  /** Fixed text to add in square brackets before timestamp (default: empty) */
+  /** If provided and timestamp is enabled, format will be: text\n[fixed_text] [timestamp] */
+  annotation_text_suffix_fixed_text?: string;
+  
+  /** Custom stamps for right-click menu (JSON array string) */
+  /** Each stamp has: name, text, order, time_stamp_suffix_enabled (default false), fixed_text_suffix_enabled (default false) */
+  /** Example: '[{"name":"Verified","text":"XXX","order":1,"time_stamp_suffix_enabled":true,"fixed_text_suffix_enabled":true}]' */
+  right_click_custom_stamps?: string;
 }
 
 /**
@@ -103,6 +115,47 @@ export interface PdfBookmark {
   
   /** Action type */
   action?: string;
+}
+
+/**
+ * Custom stamp configuration for right-click menu
+ */
+export interface CustomStamp {
+  /** Name of the stamp (displayed as menu item) */
+  name: string;
+  
+  /** Text content to add to PDF */
+  text: string;
+  
+  /** Order/position in menu (lower numbers appear first) */
+  order: number;
+  
+  /** Whether to append timestamp suffix (default: false) */
+  time_stamp_suffix_enabled?: boolean;
+  
+  /** Whether to append fixed text suffix (default: false) */
+  fixed_text_suffix_enabled?: boolean;
+  
+  /** Background color for the annotation box (hex format: #RRGGBB or rgb(r, g, b), empty string for transparent) */
+  background_color?: string;
+  
+  /** Border size/width in pixels (0 means no border, default: uses config default) */
+  border_size?: number;
+  
+  /** Font color for the text (hex format: #RRGGBB or rgb(r, g, b), default: uses config default) */
+  font_color?: string;
+  
+  /** Font weight (normal, bold, etc., default: uses config default) */
+  font_weight?: string;
+  
+  /** Font style (normal, italic, etc., default: uses config default) */
+  font_style?: string;
+  
+  /** Font size in pixels (default: uses config default) */
+  font_size?: number;
+  
+  /** Font family/name (e.g., "Arial, sans-serif", default: uses config default) */
+  font_name?: string;
 }
 
 /**

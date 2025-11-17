@@ -262,6 +262,24 @@ The Web Worker is used for CPU-intensive PDF operations:
 - `PdfViewerLayout` inspects those markers to skip pan mode and logs the same annotation id when it suppresses dragging; `PdfViewer` logs (`🟠 [AnnotationClick] ...`) when it opens the editor dialog.  
 - Removing capture-phase listeners keeps React's synthetic events intact; debugging now focuses on SVG hit tests and overlay rect handlers.
 
+### Suffix Text Formatting
+- **Location**: `src/components/pdf_viewer/pdf_viewer.tsx`
+- `add_suffix_text()` consolidates suffix handling for both manual annotations and custom stamps.  
+  - Inputs: base text, flags for fixed/timestamp suffixes, optional fixed-text override, optional bracket override.  
+  - Honors viewer configuration for `suffix_enclosing_brackets`, `suffix_text_position`, and `add_enclosing_brackets_to_suffixes`.  
+  - Placement modes:
+    - `adjacent` → suffix appended inline (`Text [Fixed] [timestamp]`).  
+    - `below_single_line` → suffix appended on a single line below (`Text\n[Fixed] [timestamp]`).  
+    - `below_multi_line` → suffix appended on individual lines (`Text\n[Fixed]\n[timestamp]`).  
+- `append_timestamp_if_enabled()` and `format_stamp_text()` both delegate to `add_suffix_text`, ensuring consistent formatting across entry points.
+- `strip_auto_inserted_suffix()` mirrors the same configuration to detect and remove suffixes before editing, so dialogs show only user-entered content prior to reapplying suffixes.
+- **Configuration** (`[viewer]` in `hazo_pdf_config.ini` / `PdfViewerConfig`):
+  - `annotation_text_suffix_fixed_text`: optional fixed suffix text (applied when non-empty).  
+  - `append_timestamp_to_text_edits`: toggles timestamp suffix for manual text entries.  
+  - `add_enclosing_brackets_to_suffixes`: wraps suffixes in the configured brackets.  
+  - `suffix_enclosing_brackets`: two-character opening/closing pair (default `[]`).  
+  - `suffix_text_position`: `adjacent`, `below_single_line`, or `below_multi_line`.
+
 ### Annotation Creation Flow
 1. User draws on overlay (mouse down, move, up)
 2. Screen coordinates converted to PDF coordinates

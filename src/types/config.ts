@@ -90,6 +90,19 @@ export interface PdfViewerConfig {
   viewer: {
     /** Background color for PDF viewer area (hex format) */
     viewer_background_color: string;
+    /** Whether to append timestamp to annotated text edits (default: false) */
+    /** When enabled, appends a newline followed by timestamp in format [YYYY-MM-DD h:mmam/pm] */
+    append_timestamp_to_text_edits: boolean;
+    /** Fixed text to add in square brackets before timestamp (default: empty) */
+    /** If provided and timestamp is enabled, format will be: text\n[fixed_text] [timestamp] */
+    annotation_text_suffix_fixed_text: string;
+    /** Whether to add enclosing brackets (default: true) */
+    add_enclosing_brackets_to_suffixes: boolean;
+    /** Enclosing bracket pair for suffixes (default: "[]", must be 2 characters) */
+    suffix_enclosing_brackets: string;
+    /** Placement of suffix text relative to input text (default: below_multi_line) */
+    /** Valid values: "adjacent", "below_single_line", "below_multi_line" */
+    suffix_text_position: 'adjacent' | 'below_single_line' | 'below_multi_line';
   };
 
   // Context menu styling
@@ -102,6 +115,10 @@ export interface PdfViewerConfig {
     context_menu_item_hover_background: string;
     /** Opacity for disabled context menu items (0.0 to 1.0) */
     context_menu_item_disabled_opacity: number;
+    /** Custom stamps for right-click menu (JSON array string) */
+    /** Each stamp has: name, text, order, time_stamp_suffix_enabled (default false), fixed_text_suffix_enabled (default false) */
+    /** Example: '[{"name":"Verified","text":"XXX","order":1,"time_stamp_suffix_enabled":true,"fixed_text_suffix_enabled":true}]' */
+    right_click_custom_stamps: string;
   };
 
   // Dialog styling

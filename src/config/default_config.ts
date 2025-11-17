@@ -56,6 +56,11 @@ export const default_config: PdfViewerConfig = {
 
   viewer: {
     viewer_background_color: '#2d2d2d',
+    append_timestamp_to_text_edits: false,
+    annotation_text_suffix_fixed_text: '',
+    add_enclosing_brackets_to_suffixes: true,
+    suffix_enclosing_brackets: '[]',
+    suffix_text_position: 'below_multi_line',
   },
 
   context_menu: {
@@ -63,6 +68,7 @@ export const default_config: PdfViewerConfig = {
     context_menu_border_color: '#d1d5db',
     context_menu_item_hover_background: '#f3f4f6',
     context_menu_item_disabled_opacity: 0.5,
+    right_click_custom_stamps: '', // Empty string means no custom stamps
   },
 
   dialog: {

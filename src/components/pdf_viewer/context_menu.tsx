@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Undo2, FileText } from 'lucide-react';
-import type { PdfViewerConfig } from '../../types';
+import type { PdfViewerConfig, CustomStamp } from '../../types';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
 
@@ -34,6 +34,12 @@ export interface ContextMenuProps {
   
   /** Configuration object for styling */
   config?: PdfViewerConfig | null;
+  
+  /** Custom stamps for right-click menu */
+  custom_stamps?: CustomStamp[];
+  
+  /** Callback when a custom stamp is clicked */
+  on_stamp_click?: (stamp: CustomStamp) => void;
 }
 
 /**
@@ -48,6 +54,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   on_annotate,
   on_close,
   config = null,
+  custom_stamps = [],
+  on_stamp_click,
 }) => {
   const menu_ref = useRef<HTMLDivElement>(null);
   const render_count_ref = useRef(0);
@@ -234,6 +242,48 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <FileText className="cls_pdf_viewer_context_menu_icon" size={16} />
           <span className="cls_pdf_viewer_context_menu_text">Annotate</span>
         </button>
+
+        {/* Custom stamps - sorted by order, displayed at bottom */}
+        {custom_stamps.length > 0 && (
+          <>
+            {/* Separator line before custom stamps */}
+            <div
+              style={{
+                height: '1px',
+                backgroundColor: menu_config.context_menu_border_color,
+                margin: '4px 0',
+              }}
+            />
+            {/* Custom stamp items - sorted by order */}
+            {[...custom_stamps]
+              .sort((a, b) => a.order - b.order)
+              .map((stamp, index) => (
+                <button
+                  key={`${stamp.name}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    if (on_stamp_click) {
+                      on_stamp_click(stamp);
+                    }
+                    if (on_close) {
+                      on_close();
+                    }
+                  }}
+                  className="cls_pdf_viewer_context_menu_item"
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = menu_config.context_menu_item_hover_background;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                  }}
+                  aria-label={stamp.name}
+                >
+                  <FileText className="cls_pdf_viewer_context_menu_icon" size={16} />
+                  <span className="cls_pdf_viewer_context_menu_text">{stamp.name}</span>
+                </button>
+              ))}
+          </>
+        )}
       </div>
     </div>
   );

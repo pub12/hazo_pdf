@@ -363,9 +363,6 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       return;
     }
 
-    // Log complete mouse position details
-    const mouse_client_x = e.clientX;
-    const mouse_client_y = e.clientY;
     const screen_x = e.clientX - rect.left;
     const screen_y = e.clientY - rect.top;
 
@@ -424,30 +421,61 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       const text = annotation.contents || '';
       if (!text) return null; // Don't render if no text
 
-      // Calculate font size - use config default, not based on annotation rect height
-      // The annotation rect height is just a placeholder and shouldn't affect font size
-      const font_size = fonts_config.freetext_font_size_default;
+      // Parse stamp styling from subject field if present
+      let stamp_styling: any = null;
+      if (annotation.subject) {
+        try {
+          const parsed = JSON.parse(annotation.subject);
+          if (parsed && parsed.stamp_name) {
+            stamp_styling = parsed;
+          }
+        } catch (e) {
+          // Not JSON, ignore
+        }
+      }
       
-      // Text color priority: annotation.color > freetext_text_color (if not default) > font_foreground_color > default black
-      // Only use freetext_text_color if it's explicitly set and not the default black value
-      // This allows font_foreground_color to be used when freetext_text_color is not configured
-      const text_color = annotation.color || 
+      // Calculate font size - use stamp font_size if provided, otherwise config default
+      const font_size = stamp_styling?.font_size !== undefined 
+        ? stamp_styling.font_size 
+        : fonts_config.freetext_font_size_default;
+      
+      // Text color priority: stamp font_color > annotation.color > freetext_text_color (if not default) > font_foreground_color > default black
+      const text_color = stamp_styling?.font_color ||
+                         annotation.color || 
                          (freetext_config.freetext_text_color && freetext_config.freetext_text_color !== '#000000'
                            ? freetext_config.freetext_text_color
                            : fonts_config.font_foreground_color) ||
                          '#000000';
       
+      // Get font family - use stamp font_name if provided, otherwise config
+      const font_family = stamp_styling?.font_name || fonts_config.freetext_font_family;
+      
+      // Get font weight - use stamp font_weight if provided, otherwise config
+      const font_weight = stamp_styling?.font_weight !== undefined
+        ? stamp_styling.font_weight
+        : freetext_config.freetext_font_weight;
+      
+      // Get font style - use stamp font_style if provided, otherwise config
+      const font_style = stamp_styling?.font_style !== undefined
+        ? stamp_styling.font_style
+        : freetext_config.freetext_font_style;
+      
       // Get padding values
       const padding_h = freetext_config.freetext_padding_horizontal;
       const padding_v = freetext_config.freetext_padding_vertical;
       
-      // Measure text width - estimate based on font size and text length
+      // Split text by newlines to calculate dimensions for multi-line text
+      const text_lines = text.split('\n');
+      const max_line_length = Math.max(...text_lines.map(line => line.length), 1);
+      
+      // Measure text width - estimate based on font size and longest line length
       // Average character is about 0.6 * font_size wide for most fonts
-      const text_width_estimate = font_size * 0.6 * text.length;
+      const text_width_estimate = font_size * 0.6 * max_line_length;
       
       // Calculate box dimensions based on text width + padding
+      // Height needs to account for multiple lines (line height = font_size)
       const box_width = text_width_estimate + (padding_h * 2);
-      const box_height = font_size + (padding_v * 2);
+      const box_height = (font_size * text_lines.length) + (padding_v * 2);
       
       // ⚠️ CRITICAL FIX: Position must use screen_x1/screen_y1 DIRECTLY, not Math.min!
       //
@@ -481,12 +509,20 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       const text_x = box_x + padding_h;
       const text_y = box_y + padding_v + font_size; // Y is baseline, so add padding_v + font_size
       
-      // Determine if we need a background or border (check even if values are empty)
-      // Trim whitespace and check for non-empty strings
-      const border_color_trimmed = freetext_config.freetext_border_color?.trim() || '';
-      const background_color_trimmed = freetext_config.freetext_background_color?.trim() || '';
+      // Determine if we need a background or border
+      // Use stamp styling if provided, otherwise use config
+      const border_size = stamp_styling?.border_size !== undefined
+        ? stamp_styling.border_size
+        : freetext_config.freetext_border_width;
       
-      const has_border = freetext_config.freetext_border_width > 0 && border_color_trimmed !== '';
+      // Border color: use config border color (stamp doesn't define border color, only size)
+      const border_color_trimmed = freetext_config.freetext_border_color?.trim() || '';
+      const has_border = border_size > 0 && border_color_trimmed !== '';
+      
+      // Background color: use stamp background_color if provided, otherwise config
+      const background_color_trimmed = (stamp_styling?.background_color !== undefined
+        ? String(stamp_styling.background_color)
+        : freetext_config.freetext_background_color)?.trim() || '';
       const has_background = background_color_trimmed !== '';
       
       // Helper to convert hex/rgb to rgba for background
@@ -553,7 +589,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
               height={box_height}
               fill="none"
               stroke={border_color_trimmed}
-              strokeWidth={freetext_config.freetext_border_width}
+              strokeWidth={border_size}
               pointerEvents="none"
             />
           )}
@@ -612,6 +648,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
           />
           
           {/* Text content - positioned with padding (always rendered, even if no border/background) */}
+          {/* Split text by newlines and render each line separately to support multi-line text (e.g., timestamp) */}
           <text
             x={text_x}
             y={text_y} // Y coordinate is baseline for text in SVG
@@ -619,14 +656,22 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             fill={text_color}
             pointerEvents="none"
             style={{
-              fontFamily: fonts_config.freetext_font_family,
-              fontWeight: freetext_config.freetext_font_weight,
-              fontStyle: freetext_config.freetext_font_style,
+              fontFamily: font_family,
+              fontWeight: font_weight,
+              fontStyle: font_style,
               textDecoration: freetext_config.freetext_text_decoration,
               userSelect: 'none',
             }}
           >
-            {text}
+            {text.split('\n').map((line, line_index) => (
+              <tspan
+                key={line_index}
+                x={text_x}
+                dy={line_index === 0 ? 0 : font_size} // First line at y position, subsequent lines below
+              >
+                {line}
+              </tspan>
+            ))}
           </text>
         </g>
       );
@@ -754,10 +799,10 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       onMouseDown={handle_mouse_down}
       onMouseMove={handle_mouse_move}
       onMouseUp={handle_mouse_up}
-      onMouseLeave={(e) => {
+      onMouseLeave={() => {
         // Reset hover state when mouse leaves SVG entirely
         setHoveredAnnotationId(null);
-        handle_mouse_leave(e);
+        handle_mouse_leave();
       }}
       onContextMenu={handle_context_menu}
     >

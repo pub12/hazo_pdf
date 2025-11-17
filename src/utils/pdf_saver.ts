@@ -64,15 +64,38 @@ export async function save_annotations_to_pdf(
       const rect_width = Math.abs(x2 - x1);
       const rect_height = Math.abs(y2 - y1);
       
-      // Parse color (hex to RGB)
+      // Parse color (hex or rgb to RGB for pdf-lib)
+      // Supports both hex (#RRGGBB) and rgb(r, g, b) formats
       let color = rgb(0, 0, 0); // Default black
       if (annotation.color) {
-        const hex = annotation.color.replace('#', '');
-        if (hex.length === 6) {
-          const r = parseInt(hex.substring(0, 2), 16) / 255;
-          const g = parseInt(hex.substring(2, 4), 16) / 255;
-          const b = parseInt(hex.substring(4, 6), 16) / 255;
-          color = rgb(r, g, b);
+        const color_str = annotation.color.trim();
+        
+        // Handle rgb(r, g, b) format
+        const rgb_pattern = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+        const rgb_match = color_str.match(rgb_pattern);
+        if (rgb_match) {
+          const r = parseInt(rgb_match[1], 10);
+          const g = parseInt(rgb_match[2], 10);
+          const b = parseInt(rgb_match[3], 10);
+          // Validate RGB values (0-255) and convert to 0-1 range for pdf-lib
+          if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+            color = rgb(r / 255, g / 255, b / 255);
+          } else {
+            console.warn(`[PDF Saver] Invalid RGB values for annotation ${annotation.id}: r=${r}, g=${g}, b=${b}`);
+          }
+        } else if (color_str.startsWith('#')) {
+          // Handle hex format (#RRGGBB)
+          const hex = color_str.slice(1).trim();
+          if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+            const r = parseInt(hex.substring(0, 2), 16) / 255;
+            const g = parseInt(hex.substring(2, 4), 16) / 255;
+            const b = parseInt(hex.substring(4, 6), 16) / 255;
+            color = rgb(r, g, b);
+          } else {
+            console.warn(`[PDF Saver] Invalid hex color format for annotation ${annotation.id}: ${color_str}`);
+          }
+        } else {
+          console.warn(`[PDF Saver] Unrecognized color format for annotation ${annotation.id}: ${color_str}`);
         }
       }
       
@@ -93,11 +116,24 @@ export async function save_annotations_to_pdf(
             
             // Add text comment if present
             if (annotation.contents) {
-              const comment_color = annotation.color || square_config.square_border_color;
-              const comment_hex = comment_color.replace('#', '');
-              const comment_r = parseInt(comment_hex.substring(0, 2), 16) / 255;
-              const comment_g = parseInt(comment_hex.substring(2, 4), 16) / 255;
-              const comment_b = parseInt(comment_hex.substring(4, 6), 16) / 255;
+              const comment_color_str = (annotation.color || square_config.square_border_color).trim();
+              let comment_r = 0, comment_g = 0, comment_b = 0;
+              
+              // Parse color (hex or rgb format)
+              const rgb_pattern = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+              const rgb_match = comment_color_str.match(rgb_pattern);
+              if (rgb_match) {
+                comment_r = parseInt(rgb_match[1], 10) / 255;
+                comment_g = parseInt(rgb_match[2], 10) / 255;
+                comment_b = parseInt(rgb_match[3], 10) / 255;
+              } else if (comment_color_str.startsWith('#')) {
+                const hex = comment_color_str.slice(1).trim();
+                if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+                  comment_r = parseInt(hex.substring(0, 2), 16) / 255;
+                  comment_g = parseInt(hex.substring(2, 4), 16) / 255;
+                  comment_b = parseInt(hex.substring(4, 6), 16) / 255;
+                }
+              }
               
               page.drawText(annotation.contents, {
                 x: rect_x,
@@ -111,11 +147,24 @@ export async function save_annotations_to_pdf(
           
           case 'Highlight': {
             // Create a highlight annotation (semi-transparent rectangle)
-            const highlight_color_hex = annotation.color || highlight_config.highlight_fill_color;
-            const highlight_hex = highlight_color_hex.replace('#', '');
-            const highlight_r = parseInt(highlight_hex.substring(0, 2), 16) / 255;
-            const highlight_g = parseInt(highlight_hex.substring(2, 4), 16) / 255;
-            const highlight_b = parseInt(highlight_hex.substring(4, 6), 16) / 255;
+            const highlight_color_str = (annotation.color || highlight_config.highlight_fill_color).trim();
+            let highlight_r = 255 / 255, highlight_g = 255 / 255, highlight_b = 0 / 255; // Default yellow
+            
+            // Parse color (hex or rgb format)
+            const rgb_pattern = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+            const rgb_match = highlight_color_str.match(rgb_pattern);
+            if (rgb_match) {
+              highlight_r = parseInt(rgb_match[1], 10) / 255;
+              highlight_g = parseInt(rgb_match[2], 10) / 255;
+              highlight_b = parseInt(rgb_match[3], 10) / 255;
+            } else if (highlight_color_str.startsWith('#')) {
+              const hex = highlight_color_str.slice(1).trim();
+              if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+                highlight_r = parseInt(hex.substring(0, 2), 16) / 255;
+                highlight_g = parseInt(hex.substring(2, 4), 16) / 255;
+                highlight_b = parseInt(hex.substring(4, 6), 16) / 255;
+              }
+            }
             const highlight_color = rgb(highlight_r, highlight_g, highlight_b);
             
             page.drawRectangle({
@@ -143,14 +192,27 @@ export async function save_annotations_to_pdf(
             // Create a free text annotation
             if (annotation.contents) {
               // Text color priority: annotation.color > freetext_text_color > font_foreground_color > default black
-              const text_color_hex = annotation.color || 
+              const text_color_str = (annotation.color || 
                                     freetext_config.freetext_text_color || 
                                     fonts_config.font_foreground_color || 
-                                    '#000000';
-              const text_hex = text_color_hex.replace('#', '');
-              const text_r = parseInt(text_hex.substring(0, 2), 16) / 255;
-              const text_g = parseInt(text_hex.substring(2, 4), 16) / 255;
-              const text_b = parseInt(text_hex.substring(4, 6), 16) / 255;
+                                    '#000000').trim();
+              let text_r = 0, text_g = 0, text_b = 0;
+              
+              // Parse color (hex or rgb format)
+              const rgb_pattern = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+              const rgb_match = text_color_str.match(rgb_pattern);
+              if (rgb_match) {
+                text_r = parseInt(rgb_match[1], 10) / 255;
+                text_g = parseInt(rgb_match[2], 10) / 255;
+                text_b = parseInt(rgb_match[3], 10) / 255;
+              } else if (text_color_str.startsWith('#')) {
+                const hex = text_color_str.slice(1).trim();
+                if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+                  text_r = parseInt(hex.substring(0, 2), 16) / 255;
+                  text_g = parseInt(hex.substring(2, 4), 16) / 255;
+                  text_b = parseInt(hex.substring(4, 6), 16) / 255;
+                }
+              }
               
               page.drawText(annotation.contents, {
                 x: rect_x,

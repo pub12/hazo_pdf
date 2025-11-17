@@ -50,11 +50,20 @@ function parse_ini_browser(ini_text: string): Record<string, Record<string, stri
 /**
  * Load config in browser environment by fetching the INI file
  * Note: In browser, we parse INI manually since hazo_config requires Node.js fs module
- * The parsing logic matches hazo_config's INI parsing behavior
+ * The parsing logic matches hazo_config's parsing behavior
+ * For Next.js apps, the config is served via /api/config which uses hazo_config on the server
  */
 async function load_config_browser(config_file: string): Promise<PdfViewerConfig> {
   try {
-    const response = await fetch(config_file);
+    // In Next.js, serve config via API route that uses hazo_config
+    // This ensures the config file stays in root and hazo_config is used server-side
+    // If config_file is a relative path (hazo_pdf_config.ini), use /api/config
+    // If it's already a full URL or API path, use it directly
+    const config_url = (config_file === 'hazo_pdf_config.ini' || config_file.includes('hazo_pdf_config.ini'))
+      ? '/api/config'
+      : config_file;
+    
+    const response = await fetch(config_url);
     if (!response.ok) {
       throw new Error(`Failed to fetch config file: ${response.status} ${response.statusText}`);
     }
@@ -72,6 +81,11 @@ async function load_config_browser(config_file: string): Promise<PdfViewerConfig
     if (parsed['freetext_annotation']) {
       console.log('[ConfigLoader] freetext_annotation section:', parsed['freetext_annotation']);
     }
+    if (parsed['viewer']) {
+      console.log('[ConfigLoader] viewer section:', parsed['viewer']);
+    } else {
+      console.warn('[ConfigLoader] viewer section NOT found in parsed config!');
+    }
     
     // Extract values from parsed INI
     const get_value = (section: string, key: string): string | undefined => {
@@ -87,6 +101,21 @@ async function load_config_browser(config_file: string): Promise<PdfViewerConfig
     console.log('  freetext_text_color:', config.freetext_annotation.freetext_text_color);
     console.log('  freetext_background_color:', config.freetext_annotation.freetext_background_color);
     console.log('  freetext_background_opacity:', config.freetext_annotation.freetext_background_opacity);
+    console.log('  append_timestamp_to_text_edits:', config.viewer.append_timestamp_to_text_edits);
+    console.log('  annotation_text_suffix_fixed_text:', config.viewer.annotation_text_suffix_fixed_text);
+    
+    // Debug: Log viewer section parsing
+    const raw_value = get_value('viewer', 'append_timestamp_to_text_edits');
+    console.log('[ConfigLoader] append_timestamp_to_text_edits:');
+    console.log('  raw_value from INI:', raw_value, '(type:', typeof raw_value, ')');
+    console.log('  parsed boolean:', config.viewer.append_timestamp_to_text_edits);
+    console.log('  parse_boolean test:', parse_boolean(raw_value, false));
+    
+    // Also log all viewer keys for debugging
+    if (parsed['viewer']) {
+      console.log('[ConfigLoader] All viewer section keys:', Object.keys(parsed['viewer']));
+      console.log('[ConfigLoader] All viewer section values:', parsed['viewer']);
+    }
     
     return config;
   } catch (error) {
@@ -280,6 +309,49 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         get_value('viewer', 'viewer_background_color'),
         default_config.viewer.viewer_background_color
       ),
+      append_timestamp_to_text_edits: parse_boolean(
+        get_value('viewer', 'append_timestamp_to_text_edits'),
+        default_config.viewer.append_timestamp_to_text_edits
+      ),
+      annotation_text_suffix_fixed_text: parse_string(
+        get_value('viewer', 'annotation_text_suffix_fixed_text'),
+        default_config.viewer.annotation_text_suffix_fixed_text
+      ),
+      add_enclosing_brackets_to_suffixes: parse_boolean(
+        get_value('viewer', 'add_enclosing_brackets_to_suffixes'),
+        default_config.viewer.add_enclosing_brackets_to_suffixes
+      ),
+      suffix_enclosing_brackets: (() => {
+        const raw_value = parse_string(
+          get_value('viewer', 'suffix_enclosing_brackets'),
+          default_config.viewer.suffix_enclosing_brackets
+        );
+        if (raw_value.length === 2) {
+          return raw_value;
+        }
+        console.warn(
+          `[ConfigLoader] suffix_enclosing_brackets must be 2 characters, received "${raw_value}". Using default.`
+        );
+        return default_config.viewer.suffix_enclosing_brackets;
+      })(),
+      suffix_text_position: (() => {
+        const raw_value = parse_string(
+          get_value('viewer', 'suffix_text_position'),
+          default_config.viewer.suffix_text_position
+        ) as 'adjacent' | 'below_single_line' | 'below_multi_line';
+        const valid_values: Array<'adjacent' | 'below_single_line' | 'below_multi_line'> = [
+          'adjacent',
+          'below_single_line',
+          'below_multi_line',
+        ];
+        if (valid_values.includes(raw_value)) {
+          return raw_value;
+        }
+        console.warn(
+          `[ConfigLoader] Invalid suffix_text_position "${raw_value}". Using default "${default_config.viewer.suffix_text_position}".`
+        );
+        return default_config.viewer.suffix_text_position;
+      })(),
     },
 
     context_menu: {
@@ -298,6 +370,10 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
       context_menu_item_disabled_opacity: parse_opacity(
         get_value('context_menu', 'context_menu_item_disabled_opacity'),
         default_config.context_menu.context_menu_item_disabled_opacity
+      ),
+      right_click_custom_stamps: parse_string(
+        get_value('context_menu', 'right_click_custom_stamps'),
+        default_config.context_menu.right_click_custom_stamps
       ),
     },
 

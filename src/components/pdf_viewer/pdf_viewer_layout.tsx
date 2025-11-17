@@ -18,7 +18,7 @@ export interface PdfViewerLayoutProps {
   pdf_document: PDFDocumentProxy;
   scale: number;
   annotations: PdfAnnotation[];
-  current_tool: string | null;
+  current_tool: 'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null;
   on_annotation_create: (annotation: PdfAnnotation) => void;
   on_context_menu: (e: React.MouseEvent, page_index: number, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
   on_annotation_click: (annotation: PdfAnnotation, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;

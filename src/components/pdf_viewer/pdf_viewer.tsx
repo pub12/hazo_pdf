@@ -6,13 +6,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, Hand } from 'lucide-react';
+import { Save, Undo2, Redo2 } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
-import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig } from '../../types';
+import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp } from '../../types';
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
+import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
 
 /**
@@ -32,6 +33,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   on_save,
   background_color,
   config_file,
+  append_timestamp_to_text_edits,
+  annotation_text_suffix_fixed_text,
+  right_click_custom_stamps,
 }) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +67,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       load_pdf_config_async(config_file)
         .then(config => {
           config_ref.current = config;
+          console.log('[PdfViewer] Config loaded:', {
+            append_timestamp_to_text_edits: config.viewer.append_timestamp_to_text_edits,
+            config_object: config,
+          });
         })
         .catch(error => {
           console.warn(`[PdfViewer] Could not load config file "${config_file}", using defaults:`, error);
@@ -71,6 +79,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     } else {
       // Node.js: use hazo_config (preferred method)
       config_ref.current = load_pdf_config(config_file);
+      console.log('[PdfViewer] Config loaded (Node.js):', {
+        append_timestamp_to_text_edits: config_ref.current?.viewer.append_timestamp_to_text_edits,
+      });
     }
   }, [config_file]);
   
@@ -78,6 +89,371 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   const effective_background_color = background_color || 
     config_ref.current?.viewer.viewer_background_color || 
     '#2d2d2d';
+  
+  /**
+   * Format timestamp for annotation text edits
+   * Returns timestamp in format YYYY-MM-DD h:mmam/pm (without brackets)
+   * Brackets are added by add_suffix_text based on configuration
+   * Example: 2025-11-17 2:24pm
+   */
+  const format_annotation_timestamp = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const am_pm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    if (hours === 0) hours = 12; // Convert 0 to 12 for 12-hour format
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}${am_pm}`;
+  };
+  
+  /**
+   * Parse custom stamps from JSON string (prop or config)
+   * @param stamps_json - JSON string array of custom stamps
+   * @returns Array of CustomStamp objects, or empty array if invalid
+   */
+  const parse_custom_stamps = (stamps_json: string | undefined): CustomStamp[] => {
+    if (!stamps_json || stamps_json.trim() === '') {
+      return [];
+    }
+    
+    try {
+      const parsed = JSON.parse(stamps_json);
+      if (!Array.isArray(parsed)) {
+        console.warn('[PdfViewer] Custom stamps must be a JSON array');
+        return [];
+      }
+      
+      // Validate and normalize stamp objects
+      return parsed
+        .filter((stamp: any) => stamp && typeof stamp === 'object')
+        .map((stamp: any) => ({
+          name: String(stamp.name || ''),
+          text: String(stamp.text || ''),
+          order: typeof stamp.order === 'number' ? stamp.order : 999,
+          time_stamp_suffix_enabled: Boolean(stamp.time_stamp_suffix_enabled),
+          fixed_text_suffix_enabled: Boolean(stamp.fixed_text_suffix_enabled),
+          // Optional styling fields
+          background_color: stamp.background_color !== undefined ? String(stamp.background_color) : undefined,
+          border_size: stamp.border_size !== undefined ? (typeof stamp.border_size === 'number' ? stamp.border_size : undefined) : undefined,
+          font_color: stamp.font_color !== undefined ? String(stamp.font_color) : undefined,
+          font_weight: stamp.font_weight !== undefined ? String(stamp.font_weight) : undefined,
+          font_style: stamp.font_style !== undefined ? String(stamp.font_style) : undefined,
+          font_size: stamp.font_size !== undefined ? (typeof stamp.font_size === 'number' ? stamp.font_size : undefined) : undefined,
+          font_name: stamp.font_name !== undefined ? String(stamp.font_name) : undefined,
+        }))
+        .filter((stamp) => stamp.name && stamp.text); // Only include stamps with name and text
+    } catch (error) {
+      console.warn('[PdfViewer] Failed to parse custom stamps JSON:', error);
+      return [];
+    }
+  };
+  
+  /**
+   * Consolidated helper to append suffix text (fixed text, timestamp) with configurable formatting
+   * @param text - Base text to append suffixes to
+   * @param fixed_text_suffix_enabled - Whether fixed text suffix should be appended
+   * @param time_stamp_suffix_enabled - Whether timestamp suffix should be appended
+   * @param fixed_text - Optional fixed text to append
+   * @param add_enclosing_brackets_override - Optional override for bracket usage
+   * @returns Text with suffixes applied based on configuration
+   */
+  const add_suffix_text = (
+    text: string,
+    fixed_text_suffix_enabled: boolean,
+    time_stamp_suffix_enabled: boolean,
+    fixed_text?: string,
+    add_enclosing_brackets_override?: boolean
+  ): string => {
+    const viewer_config = config_ref.current?.viewer;
+    const add_enclosing_brackets =
+      add_enclosing_brackets_override ??
+      viewer_config?.add_enclosing_brackets_to_suffixes ??
+      true;
+    
+    const suffix_enclosing_brackets = viewer_config?.suffix_enclosing_brackets || '[]';
+    const suffix_text_position =
+      viewer_config?.suffix_text_position || 'below_multi_line';
+    
+    const opening_bracket = suffix_enclosing_brackets[0] || '[';
+    const closing_bracket = suffix_enclosing_brackets[1] || ']';
+    
+    const suffix_parts: string[] = [];
+    
+    if (fixed_text_suffix_enabled) {
+      const trimmed_fixed_text = fixed_text?.trim();
+      if (trimmed_fixed_text && trimmed_fixed_text.length > 0) {
+        suffix_parts.push(
+          add_enclosing_brackets
+            ? `${opening_bracket}${trimmed_fixed_text}${closing_bracket}`
+            : trimmed_fixed_text
+        );
+      }
+    }
+    
+    if (time_stamp_suffix_enabled) {
+      const timestamp = format_annotation_timestamp();
+      suffix_parts.push(
+        add_enclosing_brackets
+          ? `${opening_bracket}${timestamp}${closing_bracket}`
+          : timestamp
+      );
+    }
+    
+    if (suffix_parts.length === 0) {
+      return text;
+    }
+    
+    switch (suffix_text_position) {
+      case 'adjacent': {
+        if (!text) {
+          return suffix_parts.join(' ');
+        }
+        const separator = text.endsWith(' ') ? '' : ' ';
+        return `${text}${separator}${suffix_parts.join(' ')}`;
+      }
+      case 'below_single_line':
+        return text
+          ? `${text}\n${suffix_parts.join(' ')}`
+          : suffix_parts.join(' ');
+      case 'below_multi_line':
+      default:
+        return text
+          ? `${text}\n${suffix_parts.join('\n')}`
+          : suffix_parts.join('\n');
+    }
+  };
+
+  /**
+   * Format stamp text with optional timestamp and fixed text suffixes
+   * Uses add_suffix_text helper for consistent formatting
+   * @param stamp - Custom stamp configuration
+   * @param base_text - Base text from stamp
+   * @returns Formatted text with suffixes if enabled
+   */
+  const format_stamp_text = (stamp: CustomStamp, base_text: string): string => {
+    const fixed_text_prop = annotation_text_suffix_fixed_text;
+    const fixed_text_config = config_ref.current?.viewer.annotation_text_suffix_fixed_text || '';
+    const fixed_text = fixed_text_prop !== undefined ? fixed_text_prop : fixed_text_config;
+    return add_suffix_text(
+      base_text,
+      stamp.fixed_text_suffix_enabled ?? false,
+      stamp.time_stamp_suffix_enabled ?? false,
+      fixed_text
+    );
+  };
+  
+  /**
+   * Strip auto-inserted suffix from annotation text
+   * Handles configurable bracket styles and suffix positioning
+   * @param text - Annotation text that may contain auto-inserted suffix
+   * @returns Text with suffix removed
+   */
+  const strip_auto_inserted_suffix = (text: string): string => {
+    const viewer_config = config_ref.current?.viewer;
+    const bracket_pair = viewer_config?.suffix_enclosing_brackets || '[]';
+    const add_enclosing_brackets =
+      viewer_config?.add_enclosing_brackets_to_suffixes ?? true;
+    const suffix_text_position =
+      viewer_config?.suffix_text_position || 'below_multi_line';
+    
+    const opening_bracket = bracket_pair[0] || '[';
+    const closing_bracket = bracket_pair[1] || ']';
+    
+    const escape_regexp = (value: string) =>
+      value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    const timestamp_core_pattern =
+      '\\d{4}-\\d{2}-\\d{2} \\d{1,2}:\\d{2}(?:am|pm)';
+    const timestamp_pattern = add_enclosing_brackets
+      ? `${escape_regexp(opening_bracket)}${timestamp_core_pattern}${escape_regexp(
+          closing_bracket
+        )}`
+      : timestamp_core_pattern;
+    
+    const timestamp_line_regex = new RegExp(`^${timestamp_pattern}$`);
+    const timestamp_trailing_regex = new RegExp(
+      `(?:[ \\t]+)?${timestamp_pattern}$`
+    );
+    
+    const fixed_text_prop = annotation_text_suffix_fixed_text;
+    const fixed_text_config = viewer_config?.annotation_text_suffix_fixed_text || '';
+    const fixed_text = fixed_text_prop !== undefined ? fixed_text_prop : fixed_text_config;
+    const trimmed_fixed_text = fixed_text?.trim() || '';
+    const fixed_segment = trimmed_fixed_text
+      ? add_enclosing_brackets
+        ? `${opening_bracket}${trimmed_fixed_text}${closing_bracket}`
+        : trimmed_fixed_text
+      : null;
+    
+    const fixed_line_regex = fixed_segment
+      ? new RegExp(`^${escape_regexp(fixed_segment)}$`)
+      : null;
+    const fixed_trailing_regex = fixed_segment
+      ? new RegExp(`(?:[ \\t]+)?${escape_regexp(fixed_segment)}$`)
+      : null;
+    
+    const remove_trailing_pattern = (
+      value: string,
+      pattern: RegExp | null
+    ): { updated: string; removed: boolean } => {
+      if (!pattern) {
+        return { updated: value, removed: false };
+      }
+      const new_value = value.replace(pattern, '');
+      return { updated: new_value, removed: new_value !== value };
+    };
+    
+    const strip_adjacent_suffix = (value: string): string => {
+      let updated = value;
+      let removed_any = false;
+      
+      const timestamp_removal = remove_trailing_pattern(
+        updated,
+        timestamp_trailing_regex
+      );
+      updated = timestamp_removal.updated;
+      removed_any ||= timestamp_removal.removed;
+      
+      const fixed_removal = remove_trailing_pattern(
+        updated,
+        fixed_trailing_regex
+      );
+      updated = fixed_removal.updated;
+      removed_any ||= fixed_removal.removed;
+      
+      return removed_any ? updated.replace(/[ \\t]+$/, '') : value;
+    };
+    
+    const strip_below_single_line_suffix = (value: string): string => {
+      const last_newline_index = value.lastIndexOf('\n');
+      if (last_newline_index === -1) {
+        // Fallback to adjacent stripping if newline is missing
+        return strip_adjacent_suffix(value);
+      }
+      
+      const prefix = value.slice(0, last_newline_index);
+      let suffix_line = value.slice(last_newline_index + 1);
+      let suffix_changed = false;
+      
+      const timestamp_removal = remove_trailing_pattern(
+        suffix_line,
+        timestamp_trailing_regex
+      );
+      suffix_line = timestamp_removal.updated;
+      suffix_changed ||= timestamp_removal.removed;
+      
+      const fixed_removal = remove_trailing_pattern(
+        suffix_line,
+        fixed_trailing_regex
+      );
+      suffix_line = fixed_removal.updated;
+      suffix_changed ||= fixed_removal.removed;
+      
+      if (!suffix_changed) {
+        return value;
+      }
+      
+      if (suffix_line.trim().length === 0) {
+        return prefix;
+      }
+      
+      return `${prefix}\n${suffix_line}`;
+    };
+    
+    const strip_below_multi_line_suffix = (value: string): string => {
+      const lines = value.split('\n');
+      if (lines.length === 0) {
+        return value;
+      }
+      
+      let changed = false;
+      const remove_last_line_if_matches = (pattern: RegExp | null) => {
+        if (!pattern || lines.length === 0) {
+          return;
+        }
+        const last_line = lines[lines.length - 1].trim();
+        if (pattern.test(last_line)) {
+          lines.pop();
+          changed = true;
+        }
+      };
+      
+      remove_last_line_if_matches(timestamp_line_regex);
+      remove_last_line_if_matches(fixed_line_regex);
+      
+      return changed ? lines.join('\n') : value;
+    };
+    
+    switch (suffix_text_position) {
+      case 'adjacent':
+        return strip_adjacent_suffix(text);
+      case 'below_single_line':
+        return strip_below_single_line_suffix(text);
+      case 'below_multi_line':
+      default:
+        return strip_below_multi_line_suffix(text);
+    }
+  };
+  
+  /**
+   * Append timestamp to annotation text if enabled
+   * @param text - Original annotation text
+   * @returns Text with timestamp appended (if enabled) or original text
+   * Note: Checks config dynamically to handle async config loading in browser
+   * If fixed text is provided, format will be: text\n[fixed_text] [timestamp]
+   */
+  const append_timestamp_if_enabled = (text: string): string => {
+    // Check config dynamically since it loads asynchronously in browser
+    // Priority: prop > config > default (false)
+    const prop_value = append_timestamp_to_text_edits;
+    const config_value = config_ref.current?.viewer.append_timestamp_to_text_edits;
+    const should_append = prop_value !== undefined
+      ? prop_value
+      : (config_value ?? false);
+    
+    // Get fixed text: prop > config > default (empty string)
+    const fixed_text_prop = annotation_text_suffix_fixed_text;
+    const fixed_text_config = config_ref.current?.viewer.annotation_text_suffix_fixed_text || '';
+    const fixed_text = fixed_text_prop !== undefined
+      ? fixed_text_prop
+      : fixed_text_config;
+    
+    console.log('[PdfViewer] append_timestamp_if_enabled:', {
+      prop_value,
+      config_value,
+      should_append,
+      fixed_text_prop,
+      fixed_text_config,
+      fixed_text,
+      config_loaded: !!config_ref.current,
+      original_text: text,
+    });
+    
+    if (!should_append) {
+      console.log('[PdfViewer] Timestamp NOT appended (disabled)');
+      return text;
+    }
+    
+    const include_fixed_text_suffix = Boolean(fixed_text && fixed_text.trim().length > 0);
+    const result = add_suffix_text(
+      text,
+      include_fixed_text_suffix,
+      true,
+      fixed_text
+    );
+    console.log('[PdfViewer] Timestamp appended via add_suffix_text:', {
+      original: text,
+      fixed_text,
+      include_fixed_text_suffix,
+      result,
+    });
+    return result;
+  };
   
   // Undo/Redo history
   const [history, setHistory] = useState<PdfAnnotation[][]>([initial_annotations]);
@@ -396,19 +772,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         <div className="cls_pdf_viewer_toolbar_group">
           <button
             type="button"
-            onClick={() => setCurrentTool(null)}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              !current_tool && 'cls_pdf_viewer_toolbar_button_active'
-            )}
-            aria-label="Pan tool (drag to scroll)"
-            title="Pan tool (drag to scroll)"
-          >
-            <Hand className="cls_pdf_viewer_toolbar_icon" size={16} />
-            <span className="cls_pdf_viewer_toolbar_button_text">Pan</span>
-          </button>
-          <button
-            type="button"
             onClick={() => setCurrentTool('Square')}
             className={cn(
               'cls_pdf_viewer_toolbar_button',
@@ -417,17 +780,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             aria-label="Square annotation tool"
           >
             Square
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentTool('Highlight')}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              current_tool === 'Highlight' && 'cls_pdf_viewer_toolbar_button_active'
-            )}
-            aria-label="Highlight annotation tool"
-          >
-            Highlight
           </button>
         </div>
 
@@ -550,6 +902,11 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             y={context_menu.y}
             can_undo={history_index > 0}
             config={config_ref.current}
+            custom_stamps={(() => {
+              // Get stamps from prop or config (prop takes priority)
+              const stamps_json = right_click_custom_stamps || config_ref.current?.context_menu.right_click_custom_stamps || '';
+              return parse_custom_stamps(stamps_json);
+            })()}
             on_undo={() => {
               handle_undo();
               setContextMenu(null);
@@ -566,6 +923,52 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               });
               setContextMenu(null);
             }}
+            on_stamp_click={(stamp) => {
+              if (!context_menu || !context_menu.mapper) return;
+              
+              // Format stamp text with optional suffixes
+              const formatted_text = format_stamp_text(stamp, stamp.text);
+              
+              // Convert screen coordinates to PDF coordinates
+              const [pdf_x, pdf_y] = context_menu.mapper.to_pdf(context_menu.screen_x, context_menu.screen_y);
+              
+              // Get text color - use stamp font_color if provided, otherwise use config
+              const fonts_config = config_ref.current?.fonts || default_config.fonts;
+              const freetext_config = config_ref.current?.freetext_annotation || default_config.freetext_annotation;
+              const text_color = stamp.font_color || 
+                (freetext_config.freetext_text_color && freetext_config.freetext_text_color !== '#000000'
+                  ? freetext_config.freetext_text_color
+                  : fonts_config.font_foreground_color);
+              
+              // Store stamp styling in subject field as JSON for rendering
+              // This allows annotation_overlay to apply stamp-specific styling
+              const stamp_styling = {
+                stamp_name: stamp.name,
+                background_color: stamp.background_color,
+                border_size: stamp.border_size,
+                font_color: stamp.font_color,
+                font_weight: stamp.font_weight,
+                font_style: stamp.font_style,
+                font_size: stamp.font_size,
+                font_name: stamp.font_name,
+              };
+              
+              // Create annotation with stamp styling stored in subject
+              const annotation: PdfAnnotation = {
+                id: crypto.randomUUID(),
+                type: 'FreeText',
+                page_index: context_menu.page_index,
+                rect: [pdf_x, pdf_y, pdf_x + 10, pdf_y + 10], // Placeholder rect
+                author: 'User',
+                date: new Date().toISOString(),
+                contents: formatted_text,
+                color: text_color,
+                subject: JSON.stringify(stamp_styling), // Store stamp styling metadata
+              };
+              
+              handle_annotation_create(annotation);
+              setContextMenu(null);
+            }}
             on_close={() => setContextMenu(null)}
           />
         </>
@@ -578,7 +981,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           x={text_dialog.x}
           y={text_dialog.y}
           config={config_ref.current}
-          initial_text={text_dialog.editing_annotation?.contents || ''}
+          initial_text={text_dialog.editing_annotation 
+            ? strip_auto_inserted_suffix(text_dialog.editing_annotation.contents) 
+            : ''}
           is_editing={!!text_dialog.editing_annotation}
           on_close={() => setTextDialog(null)}
           on_delete={() => {
@@ -592,10 +997,15 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             
             // Check if we're editing an existing annotation
             if (text_dialog.editing_annotation) {
+              // For editing: strip any existing suffix first, then append new suffix
+              // This ensures old suffix is removed and new one is added
+              const stripped_text = strip_auto_inserted_suffix(text);
+              const final_text = append_timestamp_if_enabled(stripped_text);
+              
               // Update existing annotation
               const updated_annotation: PdfAnnotation = {
                 ...text_dialog.editing_annotation,
-                contents: text,
+                contents: final_text,
                 date: new Date().toISOString(), // Update modification date
               };
               
@@ -603,6 +1013,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               setTextDialog(null);
               return;
             }
+            
+            // For new annotation: append timestamp if enabled
+            const final_text = append_timestamp_if_enabled(text);
             
             // Create new annotation (existing code)
             // Convert screen coordinates to PDF coordinates
@@ -659,7 +1072,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               ],
               author: 'User',
               date: new Date().toISOString(),
-              contents: text,
+              contents: final_text,
               color: text_color,
             };
             
