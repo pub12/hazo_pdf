@@ -760,107 +760,222 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     );
   }
 
+  // Get toolbar config or use defaults
+  const toolbar_config = config_ref.current?.toolbar || default_config.toolbar;
+
   return (
     <div className={cn('cls_pdf_viewer', className)}>
       {/* Toolbar */}
-      <div className="cls_pdf_viewer_toolbar">
-        <div className="cls_pdf_viewer_toolbar_group">
-          <button
-            type="button"
-            onClick={handle_zoom_out}
-            className="cls_pdf_viewer_toolbar_button"
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <span className="cls_pdf_viewer_zoom_level">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            type="button"
-            onClick={handle_zoom_in}
-            className="cls_pdf_viewer_toolbar_button"
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={handle_zoom_reset}
-            className="cls_pdf_viewer_toolbar_button"
-            aria-label="Reset zoom"
-          >
-            Reset
-          </button>
-        </div>
-
-        <div className="cls_pdf_viewer_toolbar_group">
-          <button
-            type="button"
-            onClick={() => setCurrentTool('Square')}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              current_tool === 'Square' && 'cls_pdf_viewer_toolbar_button_active'
-            )}
-            aria-label="Square annotation tool"
-          >
-            Square
-          </button>
-        </div>
-
-        <div className="cls_pdf_viewer_toolbar_group">
-          <button
-            type="button"
-            onClick={handle_undo}
-            disabled={history_index === 0}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              history_index === 0 && 'cls_pdf_viewer_toolbar_button_disabled'
-            )}
-            aria-label="Undo last annotation"
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
-            <span className="cls_pdf_viewer_toolbar_button_text">Undo</span>
-          </button>
-          <button
-            type="button"
-            onClick={handle_redo}
-            disabled={history_index >= history.length - 1}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              history_index >= history.length - 1 && 'cls_pdf_viewer_toolbar_button_disabled'
-            )}
-            aria-label="Redo last undone annotation"
-            title="Redo (Ctrl+Y)"
-          >
-            <Redo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
-            <span className="cls_pdf_viewer_toolbar_button_text">Redo</span>
-          </button>
-        </div>
-
-        <div className="cls_pdf_viewer_toolbar_group">
-          <button
-            type="button"
-            onClick={handle_save}
-            disabled={saving || annotations.length === 0}
-            className={cn(
-              'cls_pdf_viewer_toolbar_button',
-              'cls_pdf_viewer_toolbar_button_save',
-              (saving || annotations.length === 0) && 'cls_pdf_viewer_toolbar_button_disabled'
-            )}
-            aria-label="Save annotations to PDF"
-            title={annotations.length === 0 ? 'No annotations to save' : 'Save annotations to PDF'}
-          >
-            <Save className="cls_pdf_viewer_toolbar_icon" size={16} />
-            <span className="cls_pdf_viewer_toolbar_button_text">
-              {saving ? 'Saving...' : 'Save'}
+      <div 
+        className="cls_pdf_viewer_toolbar"
+        style={{
+          backgroundColor: toolbar_config.toolbar_background_color,
+          borderColor: toolbar_config.toolbar_border_color,
+          fontFamily: toolbar_config.toolbar_font_family,
+          fontSize: `${toolbar_config.toolbar_font_size}px`,
+          color: toolbar_config.toolbar_font_color,
+        }}
+      >
+        {/* Zoom Controls */}
+        {toolbar_config.toolbar_show_zoom_controls && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_zoom_out}
+              className="cls_pdf_viewer_toolbar_button"
+              aria-label="Zoom out"
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              {toolbar_config.toolbar_zoom_out_label}
+            </button>
+            <span className="cls_pdf_viewer_zoom_level">
+              {Math.round(scale * 100)}%
             </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handle_zoom_in}
+              className="cls_pdf_viewer_toolbar_button"
+              aria-label="Zoom in"
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              {toolbar_config.toolbar_zoom_in_label}
+            </button>
+            <button
+              type="button"
+              onClick={handle_zoom_reset}
+              className="cls_pdf_viewer_toolbar_button"
+              aria-label="Reset zoom"
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              {toolbar_config.toolbar_zoom_reset_label}
+            </button>
+          </div>
+        )}
+
+        {/* Square Annotation Button */}
+        {toolbar_config.toolbar_show_square_button && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={() => setCurrentTool('Square')}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                current_tool === 'Square' && 'cls_pdf_viewer_toolbar_button_active'
+              )}
+              aria-label="Square annotation tool"
+              style={{
+                backgroundColor: current_tool === 'Square' 
+                  ? toolbar_config.toolbar_button_active_background_color 
+                  : toolbar_config.toolbar_button_background_color,
+                color: current_tool === 'Square' 
+                  ? toolbar_config.toolbar_button_active_text_color 
+                  : toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                if (current_tool !== 'Square') {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (current_tool !== 'Square') {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+                }
+              }}
+            >
+              {toolbar_config.toolbar_square_label}
+            </button>
+          </div>
+        )}
+
+        {/* Undo/Redo Controls */}
+        {(toolbar_config.toolbar_show_undo_button || toolbar_config.toolbar_show_redo_button) && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            {toolbar_config.toolbar_show_undo_button && (
+              <button
+                type="button"
+                onClick={handle_undo}
+                disabled={history_index === 0}
+                className={cn(
+                  'cls_pdf_viewer_toolbar_button',
+                  history_index === 0 && 'cls_pdf_viewer_toolbar_button_disabled'
+                )}
+                aria-label="Undo last annotation"
+                title="Undo (Ctrl+Z)"
+                style={{
+                  backgroundColor: toolbar_config.toolbar_button_background_color,
+                  color: toolbar_config.toolbar_button_text_color,
+                  opacity: history_index === 0 ? toolbar_config.toolbar_button_disabled_opacity : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (history_index > 0) {
+                    e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+                }}
+              >
+                <Undo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
+                <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_undo_label}</span>
+              </button>
+            )}
+            {toolbar_config.toolbar_show_redo_button && (
+              <button
+                type="button"
+                onClick={handle_redo}
+                disabled={history_index >= history.length - 1}
+                className={cn(
+                  'cls_pdf_viewer_toolbar_button',
+                  history_index >= history.length - 1 && 'cls_pdf_viewer_toolbar_button_disabled'
+                )}
+                aria-label="Redo last undone annotation"
+                title="Redo (Ctrl+Y)"
+                style={{
+                  backgroundColor: toolbar_config.toolbar_button_background_color,
+                  color: toolbar_config.toolbar_button_text_color,
+                  opacity: history_index >= history.length - 1 ? toolbar_config.toolbar_button_disabled_opacity : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (history_index < history.length - 1) {
+                    e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+                }}
+              >
+                <Redo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
+                <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_redo_label}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Save Button */}
+        {toolbar_config.toolbar_show_save_button && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_save}
+              disabled={saving || annotations.length === 0}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                'cls_pdf_viewer_toolbar_button_save',
+                (saving || annotations.length === 0) && 'cls_pdf_viewer_toolbar_button_disabled'
+              )}
+              aria-label="Save annotations to PDF"
+              title={annotations.length === 0 ? 'No annotations to save' : 'Save annotations to PDF'}
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_save_background_color,
+                color: toolbar_config.toolbar_button_save_text_color,
+                opacity: (saving || annotations.length === 0) ? toolbar_config.toolbar_button_disabled_opacity : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!(saving || annotations.length === 0)) {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_save_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_save_background_color;
+              }}
+            >
+              <Save className="cls_pdf_viewer_toolbar_icon" size={16} />
+              <span className="cls_pdf_viewer_toolbar_button_text">
+                {saving ? toolbar_config.toolbar_saving_label : toolbar_config.toolbar_save_label}
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Sidepanel toggle button */}
-        {sidepanel_metadata_enabled && metadata_input && (
+        {sidepanel_metadata_enabled && metadata_input && toolbar_config.toolbar_show_metadata_button && (
           <div className="cls_pdf_viewer_toolbar_group">
             <button
               type="button"
@@ -871,9 +986,27 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               )}
               aria-label="Toggle metadata panel"
               title="Toggle metadata panel"
+              style={{
+                backgroundColor: sidepanel_open
+                  ? toolbar_config.toolbar_button_active_background_color
+                  : toolbar_config.toolbar_button_background_color,
+                color: sidepanel_open
+                  ? toolbar_config.toolbar_button_active_text_color
+                  : toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                if (!sidepanel_open) {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = sidepanel_open
+                  ? toolbar_config.toolbar_button_active_background_color
+                  : toolbar_config.toolbar_button_background_color;
+              }}
             >
               <PanelRight className="cls_pdf_viewer_toolbar_icon" size={16} />
-              <span className="cls_pdf_viewer_toolbar_button_text">Metadata</span>
+              <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_metadata_label}</span>
             </button>
           </div>
         )}

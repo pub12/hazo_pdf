@@ -411,6 +411,125 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         default_config.dialog.dialog_button_disabled_opacity
       ),
     },
+
+    toolbar: {
+      toolbar_background_color: parse_color(
+        get_value('toolbar', 'toolbar_background_color'),
+        default_config.toolbar.toolbar_background_color
+      ),
+      toolbar_border_color: parse_color(
+        get_value('toolbar', 'toolbar_border_color'),
+        default_config.toolbar.toolbar_border_color
+      ),
+      toolbar_font_family: parse_string(
+        get_value('toolbar', 'toolbar_font_family'),
+        default_config.toolbar.toolbar_font_family
+      ),
+      toolbar_font_size: parse_number(
+        get_value('toolbar', 'toolbar_font_size'),
+        default_config.toolbar.toolbar_font_size
+      ),
+      toolbar_font_color: parse_color(
+        get_value('toolbar', 'toolbar_font_color'),
+        default_config.toolbar.toolbar_font_color
+      ),
+      toolbar_button_background_color: parse_color(
+        get_value('toolbar', 'toolbar_button_background_color'),
+        default_config.toolbar.toolbar_button_background_color
+      ),
+      toolbar_button_background_color_hover: parse_color(
+        get_value('toolbar', 'toolbar_button_background_color_hover'),
+        default_config.toolbar.toolbar_button_background_color_hover
+      ),
+      toolbar_button_text_color: parse_color(
+        get_value('toolbar', 'toolbar_button_text_color'),
+        default_config.toolbar.toolbar_button_text_color
+      ),
+      toolbar_button_active_background_color: parse_color(
+        get_value('toolbar', 'toolbar_button_active_background_color'),
+        default_config.toolbar.toolbar_button_active_background_color
+      ),
+      toolbar_button_active_text_color: parse_color(
+        get_value('toolbar', 'toolbar_button_active_text_color'),
+        default_config.toolbar.toolbar_button_active_text_color
+      ),
+      toolbar_button_save_background_color: parse_color(
+        get_value('toolbar', 'toolbar_button_save_background_color'),
+        default_config.toolbar.toolbar_button_save_background_color
+      ),
+      toolbar_button_save_background_color_hover: parse_color(
+        get_value('toolbar', 'toolbar_button_save_background_color_hover'),
+        default_config.toolbar.toolbar_button_save_background_color_hover
+      ),
+      toolbar_button_save_text_color: parse_color(
+        get_value('toolbar', 'toolbar_button_save_text_color'),
+        default_config.toolbar.toolbar_button_save_text_color
+      ),
+      toolbar_button_disabled_opacity: parse_opacity(
+        get_value('toolbar', 'toolbar_button_disabled_opacity'),
+        default_config.toolbar.toolbar_button_disabled_opacity
+      ),
+      toolbar_show_zoom_controls: parse_boolean(
+        get_value('toolbar', 'toolbar_show_zoom_controls'),
+        default_config.toolbar.toolbar_show_zoom_controls
+      ),
+      toolbar_show_square_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_square_button'),
+        default_config.toolbar.toolbar_show_square_button
+      ),
+      toolbar_show_undo_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_undo_button'),
+        default_config.toolbar.toolbar_show_undo_button
+      ),
+      toolbar_show_redo_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_redo_button'),
+        default_config.toolbar.toolbar_show_redo_button
+      ),
+      toolbar_show_save_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_save_button'),
+        default_config.toolbar.toolbar_show_save_button
+      ),
+      toolbar_show_metadata_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_metadata_button'),
+        default_config.toolbar.toolbar_show_metadata_button
+      ),
+      toolbar_zoom_out_label: parse_string(
+        get_value('toolbar', 'toolbar_zoom_out_label'),
+        default_config.toolbar.toolbar_zoom_out_label
+      ),
+      toolbar_zoom_in_label: parse_string(
+        get_value('toolbar', 'toolbar_zoom_in_label'),
+        default_config.toolbar.toolbar_zoom_in_label
+      ),
+      toolbar_zoom_reset_label: parse_string(
+        get_value('toolbar', 'toolbar_zoom_reset_label'),
+        default_config.toolbar.toolbar_zoom_reset_label
+      ),
+      toolbar_square_label: parse_string(
+        get_value('toolbar', 'toolbar_square_label'),
+        default_config.toolbar.toolbar_square_label
+      ),
+      toolbar_undo_label: parse_string(
+        get_value('toolbar', 'toolbar_undo_label'),
+        default_config.toolbar.toolbar_undo_label
+      ),
+      toolbar_redo_label: parse_string(
+        get_value('toolbar', 'toolbar_redo_label'),
+        default_config.toolbar.toolbar_redo_label
+      ),
+      toolbar_save_label: parse_string(
+        get_value('toolbar', 'toolbar_save_label'),
+        default_config.toolbar.toolbar_save_label
+      ),
+      toolbar_saving_label: parse_string(
+        get_value('toolbar', 'toolbar_saving_label'),
+        default_config.toolbar.toolbar_saving_label
+      ),
+      toolbar_metadata_label: parse_string(
+        get_value('toolbar', 'toolbar_metadata_label'),
+        default_config.toolbar.toolbar_metadata_label
+      ),
+    },
   };
 }
 

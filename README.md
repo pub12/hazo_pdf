@@ -357,6 +357,13 @@ freetext_background_opacity = 0.1
 freetext_border_color = #003366
 freetext_border_width = 1
 
+[toolbar]
+toolbar_background_color = rgb(240, 248, 255)
+toolbar_font_color = rgb(30, 58, 138)
+toolbar_button_background_color = rgb(219, 234, 254)
+toolbar_button_text_color = rgb(30, 64, 175)
+toolbar_button_save_background_color = rgb(34, 197, 94)
+
 [context_menu]
 right_click_custom_stamps = [{"name":"Verified","text":"✅","order":1,"time_stamp_suffix_enabled":true,"fixed_text_suffix_enabled":true}]
 ```
@@ -496,6 +503,72 @@ Type from `pdfjs-dist`. Contains PDF metadata and page proxies.
 - `getPage(pageNumber: number): Promise<PDFPageProxy>` - Get a specific page
 
 ---
+
+## Toolbar Configuration
+
+The toolbar can be fully customized via the `[toolbar]` section in the configuration file. You can configure:
+
+- **Colors**: Background, border, font, and button colors (background, hover, active, save)
+- **Fonts**: Font family and size for toolbar text
+- **Visibility**: Show/hide individual button groups (zoom, square, undo, redo, save)
+- **Labels**: Customize all button labels and text
+
+**All toolbar settings with defaults:**
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `toolbar_background_color` | Color | `#f9fafb` | Toolbar background color |
+| `toolbar_border_color` | Color | `#e5e7eb` | Toolbar border color |
+| `toolbar_font_family` | String | `system-ui, -apple-system, sans-serif` | Font family for toolbar |
+| `toolbar_font_size` | Number | `14` | Font size in pixels |
+| `toolbar_font_color` | Color | `#111827` | Text color for toolbar |
+| `toolbar_button_background_color` | Color | `#ffffff` | Regular button background |
+| `toolbar_button_background_color_hover` | Color | `#f3f4f6` | Button hover background |
+| `toolbar_button_text_color` | Color | `#374151` | Button text color |
+| `toolbar_button_active_background_color` | Color | `#3b82f6` | Active button background |
+| `toolbar_button_active_text_color` | Color | `#ffffff` | Active button text color |
+| `toolbar_button_save_background_color` | Color | `#10b981` | Save button background |
+| `toolbar_button_save_background_color_hover` | Color | `#059669` | Save button hover background |
+| `toolbar_button_save_text_color` | Color | `#ffffff` | Save button text color |
+| `toolbar_button_disabled_opacity` | Number | `0.5` | Opacity for disabled buttons (0.0-1.0) |
+| `toolbar_show_zoom_controls` | Boolean | `true` | Show zoom controls |
+| `toolbar_show_square_button` | Boolean | `true` | Show square annotation button |
+| `toolbar_show_undo_button` | Boolean | `true` | Show undo button |
+| `toolbar_show_redo_button` | Boolean | `true` | Show redo button |
+| `toolbar_show_save_button` | Boolean | `true` | Show save button |
+| `toolbar_show_metadata_button` | Boolean | `true` | Show metadata panel button (only shown when sidepanel is enabled) |
+| `toolbar_zoom_out_label` | String | `"−"` | Zoom out button label |
+| `toolbar_zoom_in_label` | String | `"+"` | Zoom in button label |
+| `toolbar_zoom_reset_label` | String | `"Reset"` | Reset zoom button label |
+| `toolbar_square_label` | String | `"Square"` | Square button label |
+| `toolbar_undo_label` | String | `"Undo"` | Undo button label |
+| `toolbar_redo_label` | String | `"Redo"` | Redo button label |
+| `toolbar_save_label` | String | `"Save"` | Save button label |
+| `toolbar_saving_label` | String | `"Saving..."` | Saving button label |
+| `toolbar_metadata_label` | String | `"Metadata"` | Metadata panel button label |
+
+**Example configuration:**
+
+```ini
+[toolbar]
+# Customize colors
+toolbar_background_color = rgb(240, 248, 255)
+toolbar_border_color = rgb(59, 130, 246)
+toolbar_font_color = rgb(30, 58, 138)
+toolbar_button_background_color = rgb(219, 234, 254)
+toolbar_button_text_color = rgb(30, 64, 175)
+toolbar_button_active_background_color = rgb(37, 99, 235)
+toolbar_button_save_background_color = rgb(34, 197, 94)
+
+# Hide some controls
+toolbar_show_redo_button = false
+toolbar_show_square_button = false
+toolbar_show_metadata_button = false
+
+# Customize labels
+toolbar_save_label = Save PDF
+toolbar_undo_label = ← Undo
+```
 
 ## Toolbar Controls
 

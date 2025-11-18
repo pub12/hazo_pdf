@@ -140,4 +140,66 @@ export interface PdfViewerConfig {
     /** Opacity for disabled dialog buttons (0.0 to 1.0) */
     dialog_button_disabled_opacity: number;
   };
+
+  // Toolbar styling and configuration
+  toolbar: {
+    /** Background color for toolbar (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_background_color: string;
+    /** Border color for toolbar (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_border_color: string;
+    /** Font family for toolbar text */
+    toolbar_font_family: string;
+    /** Font size for toolbar text (pixels) */
+    toolbar_font_size: number;
+    /** Font color for toolbar text (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_font_color: string;
+    /** Button background color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_background_color: string;
+    /** Button background color on hover (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_background_color_hover: string;
+    /** Button text color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_text_color: string;
+    /** Active button background color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_active_background_color: string;
+    /** Active button text color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_active_text_color: string;
+    /** Save button background color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_save_background_color: string;
+    /** Save button background color on hover (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_save_background_color_hover: string;
+    /** Save button text color (hex format: #RRGGBB or rgb(r, g, b)) */
+    toolbar_button_save_text_color: string;
+    /** Disabled button opacity (0.0 to 1.0) */
+    toolbar_button_disabled_opacity: number;
+    /** Whether to show zoom controls (true/false) */
+    toolbar_show_zoom_controls: boolean;
+    /** Whether to show square annotation button (true/false) */
+    toolbar_show_square_button: boolean;
+    /** Whether to show undo button (true/false) */
+    toolbar_show_undo_button: boolean;
+    /** Whether to show redo button (true/false) */
+    toolbar_show_redo_button: boolean;
+    /** Whether to show save button (true/false) */
+    toolbar_show_save_button: boolean;
+    /** Whether to show metadata panel button (true/false) */
+    toolbar_show_metadata_button: boolean;
+    /** Label for zoom out button (default: "−") */
+    toolbar_zoom_out_label: string;
+    /** Label for zoom in button (default: "+") */
+    toolbar_zoom_in_label: string;
+    /** Label for reset zoom button (default: "Reset") */
+    toolbar_zoom_reset_label: string;
+    /** Label for square annotation button (default: "Square") */
+    toolbar_square_label: string;
+    /** Label for undo button (default: "Undo") */
+    toolbar_undo_label: string;
+    /** Label for redo button (default: "Redo") */
+    toolbar_redo_label: string;
+    /** Label for save button (default: "Save") */
+    toolbar_save_label: string;
+    /** Label for saving button (default: "Saving...") */
+    toolbar_saving_label: string;
+    /** Label for metadata panel button (default: "Metadata") */
+    toolbar_metadata_label: string;
+  };
 }
