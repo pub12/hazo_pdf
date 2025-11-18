@@ -59,6 +59,16 @@ export interface PdfViewerProps {
   /** Each stamp has: name, text, order, time_stamp_suffix_enabled (default false), fixed_text_suffix_enabled (default false) */
   /** Example: '[{"name":"Verified","text":"XXX","order":1,"time_stamp_suffix_enabled":true,"fixed_text_suffix_enabled":true}]' */
   right_click_custom_stamps?: string;
+  
+  /** Whether to enable the sidepanel metadata display (default: false) */
+  sidepanel_metadata_enabled?: boolean;
+  
+  /** Metadata input structure for sidepanel display */
+  metadata_input?: MetadataInput;
+  
+  /** Callback when metadata is changed via editing */
+  /** Returns both the updated row and the complete metadata structure */
+  on_metadata_change?: (updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput };
 }
 
 /**
@@ -187,4 +197,55 @@ export type PdfDocument = PDFDocumentProxy;
  * PDF Page Proxy type
  */
 export type PdfPage = PDFPageProxy;
+
+/**
+ * Metadata format types for sidepanel display
+ */
+export type MetadataFormatType = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'body';
+
+/**
+ * Metadata header item
+ */
+export interface MetadataHeaderItem {
+  /** Format style for the header text */
+  style: MetadataFormatType;
+  /** Label text to display */
+  label: string;
+}
+
+/**
+ * Metadata data item
+ */
+export interface MetadataDataItem {
+  /** Label/title for the data item (used as accordion title) */
+  label: string;
+  /** Format style for the label text */
+  style: MetadataFormatType;
+  /** Value to display */
+  value: string;
+  /** Whether this field is editable */
+  editable: boolean;
+}
+
+/**
+ * Metadata footer item
+ */
+export interface MetadataFooterItem {
+  /** Format style for the footer text */
+  style: MetadataFormatType;
+  /** Label text to display */
+  label: string;
+}
+
+/**
+ * Metadata input structure for sidepanel
+ */
+export interface MetadataInput {
+  /** Array of header items */
+  header: MetadataHeaderItem[];
+  /** Array of data items (rendered as accordions) */
+  data: MetadataDataItem[];
+  /** Array of footer items */
+  footer: MetadataFooterItem[];
+}
 

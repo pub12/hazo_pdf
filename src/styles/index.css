@@ -11,6 +11,13 @@
   @apply w-full h-full flex flex-col;
 }
 
+.cls_pdf_viewer_content_wrapper {
+  @apply flex-1 flex flex-row;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
 .cls_pdf_viewer_content {
   @apply flex-1;
   /* Enable both horizontal and vertical scrolling */
@@ -20,6 +27,12 @@
   /* Ensure content can expand beyond viewport */
   min-width: 0;
   min-height: 0;
+  transition: width 0.2s ease-in-out;
+}
+
+/* Width is set dynamically via inline style in pdf_viewer.tsx */
+.cls_pdf_viewer_content_with_sidepanel {
+  /* Dynamic width applied via style prop */
 }
 
 .cls_pdf_viewer_container {
@@ -218,6 +231,226 @@
 
 .cls_pdf_viewer_dialog_button_disabled {
   @apply opacity-40 cursor-not-allowed;
+}
+
+/* Metadata Sidepanel */
+.cls_metadata_sidepanel {
+  @apply flex flex-row;
+  position: relative;
+  background: white;
+  border-left: 1px solid #e5e7eb;
+  overflow: hidden;
+  transition: width 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.cls_metadata_sidepanel_open {
+  display: flex;
+}
+
+.cls_metadata_sidepanel_resize_handle {
+  @apply cursor-ew-resize;
+  width: 4px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.cls_metadata_sidepanel_resize_handle:hover {
+  background: #d1d5db;
+}
+
+.cls_metadata_sidepanel_resize_handle:active {
+  background: #9ca3af;
+}
+
+.cls_metadata_sidepanel_toggle_edge {
+  @apply fixed right-0 top-1/2 -translate-y-1/2 z-50;
+  @apply bg-white border border-gray-300 rounded-l-lg shadow-lg;
+  @apply p-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  transition: all 0.2s ease-in-out;
+}
+
+.cls_metadata_sidepanel_content {
+  @apply flex flex-col w-full h-full;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cls_metadata_sidepanel_header {
+  @apply flex items-center justify-between p-4 border-b bg-gray-50;
+  flex-shrink: 0;
+}
+
+.cls_metadata_sidepanel_title {
+  @apply text-lg font-semibold;
+}
+
+.cls_metadata_sidepanel_close {
+  @apply p-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.cls_metadata_sidepanel_body {
+  @apply flex-1 overflow-y-auto;
+  padding: 1rem;
+  min-height: 0;
+}
+
+.cls_metadata_section {
+  @apply mb-4;
+}
+
+.cls_metadata_header_section {
+  @apply border-b pb-4 mb-4;
+}
+
+.cls_metadata_footer_section {
+  @apply border-t pt-4 mt-4;
+}
+
+/* Metadata Text Formatting */
+.cls_metadata_text {
+  @apply mb-2;
+}
+
+.cls_metadata_h1 {
+  @apply text-3xl font-bold;
+}
+
+.cls_metadata_h2 {
+  @apply text-2xl font-bold;
+}
+
+.cls_metadata_h3 {
+  @apply text-xl font-semibold;
+}
+
+.cls_metadata_h4 {
+  @apply text-lg font-semibold;
+}
+
+.cls_metadata_h5 {
+  @apply text-base font-semibold;
+}
+
+.cls_metadata_body {
+  @apply text-base;
+}
+
+/* Metadata Accordion */
+.cls_metadata_accordion {
+  @apply mb-2 border border-gray-200 rounded;
+}
+
+.cls_metadata_accordion_header {
+  @apply w-full flex items-center justify-between p-3 text-left;
+  @apply hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply transition-colors;
+  background: white;
+}
+
+.cls_metadata_accordion_label {
+  @apply flex-1 mb-0;
+}
+
+.cls_metadata_accordion_icon {
+  @apply flex-shrink-0 ml-2;
+  color: #6b7280;
+}
+
+.cls_metadata_accordion_content {
+  @apply p-3 border-t border-gray-200 bg-gray-50;
+}
+
+.cls_metadata_value_container {
+  @apply flex items-center justify-between gap-2;
+}
+
+.cls_metadata_value {
+  @apply flex-1 text-sm;
+  word-break: break-word;
+}
+
+.cls_metadata_edit_button {
+  @apply p-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply flex-shrink-0;
+  color: #6b7280;
+  transition: all 0.2s ease-in-out;
+}
+
+.cls_metadata_edit_button:hover {
+  color: #374151;
+}
+
+/* Metadata Edit Mode */
+.cls_metadata_edit_mode {
+  @apply flex items-center gap-2;
+}
+
+.cls_metadata_edit_input {
+  @apply flex-1 px-2 py-1 text-sm border border-gray-300 rounded;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.cls_metadata_edit_buttons {
+  @apply flex items-center gap-1;
+}
+
+.cls_metadata_edit_save {
+  @apply p-1 rounded hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500;
+  transition: all 0.2s ease-in-out;
+}
+
+.cls_metadata_edit_cancel {
+  @apply p-1 rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cls_pdf_viewer_content_wrapper {
+    position: relative;
+  }
+
+  .cls_pdf_viewer_content_with_sidepanel {
+    width: 100%;
+  }
+
+  .cls_metadata_sidepanel {
+    @apply fixed right-0 top-0 bottom-0 z-50;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .cls_metadata_sidepanel_open {
+    width: 100% !important;
+    max-width: 90vw;
+  }
+
+  .cls_pdf_viewer_toolbar {
+    @apply flex-wrap;
+  }
+
+  .cls_pdf_viewer_toolbar_group {
+    @apply flex-wrap;
+  }
+
+  .cls_pdf_viewer_toolbar_button {
+    @apply min-h-[44px];
+    /* Touch-friendly button size */
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .cls_metadata_sidepanel {
+    max-width: 50%;
+  }
+}
+
+@media (min-width: 1025px) {
+  .cls_metadata_sidepanel {
+    max-width: 800px;
+  }
 }
 
 /*---break---

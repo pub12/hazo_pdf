@@ -410,6 +410,14 @@ See `hazo_pdf_config.ini` in the project root for all available configuration op
 | `append_timestamp_to_text_edits` | `boolean` | `false` | If `true`, automatically appends a timestamp to all FreeText annotations when created or edited. Format: `[YYYY-MM-DD h:mmam/pm]`. Overrides config file value. |
 | `annotation_text_suffix_fixed_text` | `string` | `""` | Fixed text string to append before the timestamp (if timestamps are enabled). This text will be enclosed in brackets. Overrides config file value. |
 
+##### Sidepanel Metadata
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `sidepanel_metadata_enabled` | `boolean` | `false` | If `true`, enables the metadata sidepanel on the right side of the viewer. The panel can be toggled from the toolbar or right edge button. |
+| `metadata_input` | `MetadataInput` | `undefined` | Metadata structure with header, data (accordions), and footer sections. Each section supports different format types (h1-h5, body) and editable fields. See [Sidepanel Metadata](#sidepanel-metadata) section for details. |
+| `on_metadata_change` | `(updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput }` | `undefined` | Callback when a metadata field is edited. Receives the updated row and complete metadata structure. Must return both parameters. Use this to persist metadata changes to your backend. |
+
 ##### Custom Stamps
 
 | Prop | Type | Default | Description |
@@ -489,6 +497,278 @@ Type from `pdfjs-dist`. Contains PDF metadata and page proxies.
 
 ---
 
+## Toolbar Controls
+
+The PDF viewer includes a toolbar at the top with the following controls:
+
+### Zoom Controls
+
+- **Zoom In (+ button)**: Increases zoom level by 0.25x increments (max 3.0x)
+- **Zoom Out (- button)**: Decreases zoom level by 0.25x increments (min 0.5x)
+- **Reset Zoom button**: Resets zoom to 1.0x (100%)
+- **Zoom level display**: Shows current zoom percentage (e.g., "125%")
+
+**Usage:**
+- Click the `+` or `-` buttons to adjust zoom
+- Click "Reset" to return to default zoom
+- Zoom affects the PDF page size but maintains aspect ratio
+
+### Annotation Tools
+
+- **Square button**: Activates square/rectangle annotation tool
+  - Click and drag on the PDF to create a rectangle
+  - Right-click the rectangle to add a comment
+  - Button highlights when active
+
+### History Controls
+
+- **Undo button**: Reverses the last annotation action
+  - Keyboard shortcut: `Ctrl+Z` (Windows/Linux) or `Cmd+Z` (Mac)
+  - Disabled when there are no actions to undo
+  - Shows history icon
+
+- **Redo button**: Reapplies the last undone action
+  - Keyboard shortcut: `Ctrl+Y` (Windows/Linux) or `Cmd+Y` (Mac)
+  - Disabled when there are no actions to redo
+  - Shows redo icon
+
+### Save Control
+
+- **Save button**: Saves all annotations directly into the PDF file
+  - Disabled when there are no annotations
+  - Shows save icon and "Saving..." text during save operation
+  - Triggers `on_save` callback with PDF bytes and filename
+
+### Metadata Panel Toggle
+
+- **Metadata button**: Toggles the metadata sidepanel (only visible when `sidepanel_metadata_enabled={true}`)
+  - Shows panel icon
+  - Button highlights when panel is open
+  - Opens/closes the right-side metadata panel
+
+---
+
+## Sidepanel Metadata
+
+The PDF viewer can display a retractable sidepanel on the right side showing JSON metadata with header, data (accordions), and footer sections.
+
+### Enabling the Sidepanel
+
+To enable the metadata sidepanel, set `sidepanel_metadata_enabled={true}` and provide `metadata_input`:
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import type { MetadataInput } from 'hazo_pdf';
+
+const metadata: MetadataInput = {
+  header: [
+    { style: 'h1', label: 'Document Information' },
+    { style: 'body', label: 'Last updated: 2025-01-15' }
+  ],
+  data: [
+    {
+      label: 'Document Title',
+      style: 'h3',
+      value: 'Annual Report 2024',
+      editable: true
+    },
+    {
+      label: 'Author',
+      style: 'h4',
+      value: 'John Doe',
+      editable: true
+    },
+    {
+      label: 'Status',
+      style: 'body',
+      value: 'Draft',
+      editable: false
+    }
+  ],
+  footer: [
+    { style: 'body', label: 'Version 1.0' }
+  ]
+};
+
+<PdfViewer
+  url="/document.pdf"
+  sidepanel_metadata_enabled={true}
+  metadata_input={metadata}
+  on_metadata_change={(updatedRow, allData) => {
+    console.log('Updated row:', updatedRow);
+    console.log('All data:', allData);
+    // Save to server, update state, etc.
+    return { updatedRow, allData };
+  }}
+/>
+```
+
+### Metadata Structure
+
+The `MetadataInput` interface has three sections:
+
+#### Header Section
+- Array of `MetadataHeaderItem` objects
+- Each item has `style` (format type) and `label` (text)
+- Rendered at the top of the panel
+
+#### Data Section
+- Array of `MetadataDataItem` objects
+- Each item is rendered as a collapsible accordion (starts collapsed)
+- Properties:
+  - `label`: Title shown as accordion header (required)
+  - `style`: Format type for the label (h1-h5, body) (required)
+  - `value`: Value to display (required)
+  - `editable`: Whether field can be edited (boolean, required)
+
+#### Footer Section
+- Array of `MetadataFooterItem` objects (same structure as header)
+- Rendered at the bottom of the panel
+
+### Format Types
+
+The `style` property accepts the following format types:
+- `h1`: Large heading (3xl, bold)
+- `h2`: Heading (2xl, bold)
+- `h3`: Subheading (xl, semibold)
+- `h4`: Smaller subheading (lg, semibold)
+- `h5`: Small heading (base, semibold)
+- `body`: Regular text (base)
+
+### Editable Fields
+
+When `editable: true`:
+- A pencil icon appears next to the value
+- Clicking the pencil enters edit mode
+- Edit mode shows:
+  - Text input field (single-line)
+  - Green circle-check button (save)
+  - Red circle-x button (cancel)
+- Pressing `Enter` saves, `Escape` cancels
+- On save, `on_metadata_change` callback is called with:
+  - `updatedRow`: The updated `MetadataDataItem`
+  - `allData`: The complete `MetadataInput` with all updates
+- Callback must return `{ updatedRow, allData }`
+
+### Panel Controls
+
+- **Toggle from toolbar**: Click the "Metadata" button in the toolbar
+- **Toggle from right edge**: Click the chevron button on the right edge (when closed)
+- **Resize**: Drag the left edge of the panel to resize (200px - 800px on desktop)
+- **Close**: Click the chevron button in the panel header or toggle button in toolbar
+
+### Responsive Behavior
+
+- **Desktop (> 1024px)**: Panel appears side-by-side with PDF viewer, max width 800px
+- **Tablet (768px - 1024px)**: Panel max width is 50% of screen, can overlay
+- **Mobile (< 768px)**: Panel uses overlay mode, max width 90vw, full height
+
+### Example: Complex Metadata (Test App Example)
+
+The test app includes comprehensive test data demonstrating all metadata variations. This example shows all format types (h1-h5, body), editable and non-editable fields:
+
+```tsx
+import type { MetadataInput, MetadataDataItem } from 'hazo_pdf';
+
+const test_metadata: MetadataInput = {
+  header: [
+    { style: 'h1', label: 'Document Information' },
+    { style: 'h3', label: 'Test Document Metadata' },
+    { style: 'body', label: 'Last updated: 2025-01-15' }
+  ],
+  data: [
+    {
+      label: 'Document Title',
+      style: 'h2',
+      value: 'Annual Report 2024',
+      editable: true
+    },
+    {
+      label: 'Author Information',
+      style: 'h3',
+      value: 'John Doe\nSenior Analyst\nDepartment of Finance',
+      editable: true
+    },
+    {
+      label: 'Document Status',
+      style: 'h4',
+      value: 'Approved',
+      editable: false
+    },
+    {
+      label: 'Version',
+      style: 'h5',
+      value: '1.0.0',
+      editable: true
+    },
+    {
+      label: 'Category',
+      style: 'body',
+      value: 'Financial Report',
+      editable: false
+    },
+    {
+      label: 'Keywords',
+      style: 'body',
+      value: 'financial, annual, report, 2024',
+      editable: true
+    },
+    {
+      label: 'Document ID',
+      style: 'h5',
+      value: 'DOC-2024-001',
+      editable: false
+    },
+    {
+      label: 'Notes',
+      style: 'body',
+      value: 'This document contains comprehensive financial data for the fiscal year 2024. Please review all sections carefully before finalizing.',
+      editable: true
+    },
+    {
+      label: 'Confidentiality Level',
+      style: 'h4',
+      value: 'Internal Use Only',
+      editable: false
+    },
+    {
+      label: 'Approval Date',
+      style: 'body',
+      value: '2025-01-10',
+      editable: false
+    }
+  ],
+  footer: [
+    { style: 'body', label: 'This is a test metadata example' },
+    { style: 'h5', label: 'Version 1.0 - Test App' }
+  ]
+};
+
+<PdfViewer
+  url="/document.pdf"
+  sidepanel_metadata_enabled={true}
+  metadata_input={test_metadata}
+  on_metadata_change={(updatedRow, allData) => {
+    console.log('Updated:', updatedRow);
+    console.log('All data:', allData);
+    // Update state, save to backend, etc.
+    return { updatedRow, allData };
+  }}
+/>
+```
+
+**This example demonstrates:**
+- **Header section**: Multiple format types (h1, h3, body)
+- **Data section**: All format types (h2, h3, h4, h5, body) with both editable and non-editable fields
+- **Footer section**: Multiple format types (body, h5)
+- **Multi-line values**: Author Information includes newlines
+- **Long text values**: Notes field contains a longer description
+- **Mixed editability**: Some fields editable, others read-only
+
+**Note:** This test data is used in the test app (`app/viewer/[filename]/page.tsx`) to demonstrate all sidepanel metadata features.
+
+---
+
 ## Usage Tips
 
 ### Styling
@@ -496,6 +776,102 @@ Type from `pdfjs-dist`. Contains PDF metadata and page proxies.
 - The viewer uses TailwindCSS classes. Ensure TailwindCSS is configured in your project or import the bundled styles.
 - Use the `className` prop to add custom wrapper styles.
 - Use the configuration file for comprehensive styling customization.
+
+### Annotation Coordinate System
+
+- Annotations use PDF coordinate space (points), not screen pixels.
+- PDF coordinates start at the bottom-left (Y increases upward).
+- The component handles coordinate conversion automatically.
+
+### Pan Tool
+
+- Pan is the default tool (`current_tool = null`).
+- Users can drag to scroll/pan the document.
+- The cursor changes to a hand icon when panning.
+
+### Square Annotations
+
+1. Click the "Square" button in the toolbar.
+2. Click and drag on the PDF to create a rectangle.
+3. Right-click the rectangle to add a comment.
+
+### FreeText Annotations
+
+1. Right-click anywhere on the PDF.
+2. Select "Annotate" from the context menu.
+3. Enter text in the dialog.
+4. Click the checkmark to save.
+5. Left-click an existing FreeText annotation to edit or delete it.
+
+### Custom Stamps
+
+1. Configure stamps via `right_click_custom_stamps` prop or config file.
+2. Right-click on the PDF.
+3. Select a stamp from the bottom of the menu.
+4. The stamp text is added at the click position with optional timestamp/fixed text.
+
+### Saving Annotations
+
+- Click the "Save" button in the toolbar.
+- The `on_save` callback receives PDF bytes with annotations embedded using `pdf-lib`.
+- You can download directly or upload to a server.
+
+**Example download:**
+
+```tsx
+const handleSave = (pdfBytes: Uint8Array, filename: string) => {
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'document.pdf';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+```
+
+### Timestamp Formatting
+
+When `append_timestamp_to_text_edits` is enabled, timestamps are formatted as:
+- Format: `YYYY-MM-DD h:mmam/pm`
+- Example: `2025-11-17 2:24pm`
+
+The position and bracket style can be configured via the config file:
+- `suffix_text_position`: `"adjacent"`, `"below_single_line"`, or `"below_multi_line"` (default)
+- `suffix_enclosing_brackets`: Two-character string like `"[]"`, `"()"`, `"{}"` (default: `"[]"`)
+- `add_enclosing_brackets_to_suffixes`: `true` or `false` (default: `true`)
+
+### Responsive Design
+
+The PDF viewer is fully responsive and adapts to different screen sizes:
+
+**Desktop (> 1024px):**
+- Full feature set available
+- Sidepanel appears side-by-side with PDF (when enabled)
+- All toolbar buttons visible
+- Optimal viewing experience
+
+**Tablet (768px - 1024px):**
+- Sidepanel max width is 50% of screen (when enabled)
+- Toolbar buttons may wrap to multiple rows
+- Touch-friendly button sizes
+- Horizontal scrolling available for zoomed PDFs
+
+**Mobile (< 768px):**
+- Sidepanel uses overlay mode (when enabled), max 90vw width
+- Toolbar buttons wrap and use touch-friendly sizes (min 44px height)
+- PDF viewer maintains full functionality
+- Pan tool works with touch gestures
+- All annotation tools remain accessible
+
+**Breakpoints:**
+- Mobile: `< 768px`
+- Tablet: `768px - 1024px`
+- Desktop: `> 1024px`
+
+The viewer uses CSS media queries to adjust layout and component sizes automatically. All interactive elements are touch-friendly on mobile devices.
+
+---
 
 ### Annotation Coordinate System
 

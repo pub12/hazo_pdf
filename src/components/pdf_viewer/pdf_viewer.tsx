@@ -6,12 +6,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2 } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
-import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp } from '../../types';
+import { MetadataSidepanel } from './metadata_sidepanel';
+import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp, MetadataInput, MetadataDataItem } from '../../types';
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
@@ -36,6 +37,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   append_timestamp_to_text_edits,
   annotation_text_suffix_fixed_text,
   right_click_custom_stamps,
+  sidepanel_metadata_enabled = false,
+  metadata_input,
+  on_metadata_change,
 }) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +49,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   // Default tool is Pan (null) for scrolling the document
   const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>(null);
   const [saving, setSaving] = useState(false);
+  // Sidepanel state
+  const [sidepanel_open, setSidepanelOpen] = useState(false);
+  const [sidepanel_width, setSidepanelWidth] = useState(300);
   
   // Load configuration from file
   const config_ref = useRef<PdfViewerConfig | null>(null);
@@ -662,6 +669,24 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     setScale(1.0);
   };
 
+  // Handle sidepanel toggle
+  const handle_sidepanel_toggle = () => {
+    setSidepanelOpen((prev) => !prev);
+  };
+
+  // Handle sidepanel width change
+  const handle_sidepanel_width_change = (width: number) => {
+    setSidepanelWidth(width);
+  };
+
+  // Handle metadata change
+  const handle_metadata_change = (updatedRow: MetadataDataItem, allData: MetadataInput) => {
+    if (on_metadata_change) {
+      return on_metadata_change(updatedRow, allData);
+    }
+    return { updatedRow, allData };
+  };
+
   // Handle save annotations to PDF
   const handle_save = async () => {
     if (annotations.length === 0) {
@@ -833,56 +858,92 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             </span>
           </button>
         </div>
+
+        {/* Sidepanel toggle button */}
+        {sidepanel_metadata_enabled && metadata_input && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_sidepanel_toggle}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                sidepanel_open && 'cls_pdf_viewer_toolbar_button_active'
+              )}
+              aria-label="Toggle metadata panel"
+              title="Toggle metadata panel"
+            >
+              <PanelRight className="cls_pdf_viewer_toolbar_icon" size={16} />
+              <span className="cls_pdf_viewer_toolbar_button_text">Metadata</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* PDF Viewer Layout */}
-      <div className="cls_pdf_viewer_content">
-        <PdfViewerLayout
-          pdf_document={pdf_document}
-          scale={scale}
-          annotations={annotations}
-          current_tool={current_tool}
-          background_color={effective_background_color}
-          config={config_ref.current}
-          on_annotation_create={handle_annotation_create}
-          on_annotation_click={(annotation, screen_x, screen_y, mapper) => {
-            console.log(
-              `🟠 [AnnotationClick] opening editor id=${annotation.id}, page=${annotation.page_index}, screen=(${screen_x.toFixed(
-                1
-              )}, ${screen_y.toFixed(1)})`
-            );
-            const dialog_x = window.innerWidth / 2; // Center horizontally
-            const dialog_y = Math.max(50, screen_y); // Position near annotation, but at least 50px from top
-            
-            // Open text dialog for editing
-            // For FreeText annotations, show existing text
-            // For other annotations, show empty dialog (they don't have text)
-            setTextDialog({
-              open: true,
-              page_index: annotation.page_index,
-              x: dialog_x,
-              y: dialog_y,
-              screen_x,
-              screen_y,
-              mapper,
-              editing_annotation: annotation,
-            });
-          }}
-          on_context_menu={(e, page_index, screen_x, screen_y, mapper) => {
-            const menu_x = e.clientX;
-            const menu_y = e.clientY;
-            
-            setContextMenu({
-              visible: true,
-              x: menu_x,
-              y: menu_y,
-              page_index,
-              screen_x,
-              screen_y,
-              mapper,
-            });
-          }}
-        />
+      {/* PDF Viewer Layout with Sidepanel */}
+      <div className={cn('cls_pdf_viewer_content_wrapper', sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
+        <div 
+          className={cn('cls_pdf_viewer_content', sidepanel_open && 'cls_pdf_viewer_content_with_sidepanel')}
+          style={sidepanel_open ? { width: `calc(100% - ${sidepanel_width}px)` } : undefined}
+        >
+          <PdfViewerLayout
+            pdf_document={pdf_document}
+            scale={scale}
+            annotations={annotations}
+            current_tool={current_tool}
+            background_color={effective_background_color}
+            config={config_ref.current}
+            on_annotation_create={handle_annotation_create}
+            on_annotation_click={(annotation, screen_x, screen_y, mapper) => {
+              console.log(
+                `🟠 [AnnotationClick] opening editor id=${annotation.id}, page=${annotation.page_index}, screen=(${screen_x.toFixed(
+                  1
+                )}, ${screen_y.toFixed(1)})`
+              );
+              const dialog_x = window.innerWidth / 2; // Center horizontally
+              const dialog_y = Math.max(50, screen_y); // Position near annotation, but at least 50px from top
+              
+              // Open text dialog for editing
+              // For FreeText annotations, show existing text
+              // For other annotations, show empty dialog (they don't have text)
+              setTextDialog({
+                open: true,
+                page_index: annotation.page_index,
+                x: dialog_x,
+                y: dialog_y,
+                screen_x,
+                screen_y,
+                mapper,
+                editing_annotation: annotation,
+              });
+            }}
+            on_context_menu={(e, page_index, screen_x, screen_y, mapper) => {
+              const menu_x = e.clientX;
+              const menu_y = e.clientY;
+              
+              setContextMenu({
+                visible: true,
+                x: menu_x,
+                y: menu_y,
+                page_index,
+                screen_x,
+                screen_y,
+                mapper,
+              });
+            }}
+          />
+        </div>
+
+        {/* Metadata Sidepanel */}
+        {sidepanel_metadata_enabled && metadata_input && (
+          <MetadataSidepanel
+            is_open={sidepanel_open}
+            on_toggle={handle_sidepanel_toggle}
+            metadata={metadata_input}
+            on_change={handle_metadata_change}
+            width={sidepanel_width}
+            on_width_change={handle_sidepanel_width_change}
+          />
+        )}
       </div>
 
       {/* Context Menu */}
