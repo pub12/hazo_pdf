@@ -52,7 +52,7 @@ const config: StorybookConfig = {
     
     // Get root directory for config file
     const rootDir = path.resolve(__dirname, '..');
-    const configFilePath = path.join(rootDir, 'hazo_pdf_config.ini');
+    const configFilePath = path.join(rootDir, 'config/hazo_pdf_config.ini');
     
     // Create PDF server plugin - this runs early in the middleware chain
     const pdfServerPlugin: Plugin = {
@@ -62,13 +62,13 @@ const config: StorybookConfig = {
         // Add middleware early in the chain
         server.middlewares.use((req, res, next) => {
           // Check if request is for config file
-          if (req.url === '/hazo_pdf_config.ini' || req.url?.endsWith('/hazo_pdf_config.ini')) {
+          if (req.url === '/config/hazo_pdf_config.ini' || req.url?.endsWith('/config/hazo_pdf_config.ini')) {
             console.log(`[Config Server] Request for config file: ${req.url} -> ${configFilePath}`);
             
             if (fs.existsSync(configFilePath)) {
               try {
                 const stats = fs.statSync(configFilePath);
-                console.log(`[Config Server] Serving: hazo_pdf_config.ini (${stats.size} bytes)`);
+                console.log(`[Config Server] Serving: config/hazo_pdf_config.ini (${stats.size} bytes)`);
                 
                 res.setHeader('Content-Type', 'text/plain; charset=utf-8');
                 res.setHeader('Content-Length', stats.size.toString());

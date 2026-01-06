@@ -41,7 +41,10 @@ export interface AnnotationOverlayProps {
   
   /** Callback when annotation is clicked */
   on_annotation_click?: (annotation: PdfAnnotation, screen_x: number, screen_y: number) => void;
-  
+
+  /** Callback when FreeText tool is active and user clicks on empty area */
+  on_freetext_click?: (screen_x: number, screen_y: number) => void;
+
   /** Configuration object for styling */
   config?: PdfViewerConfig | null;
   
@@ -126,6 +129,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   on_annotation_create,
   on_context_menu,
   on_annotation_click,
+  on_freetext_click,
   config = null,
   className = '',
 }) => {
@@ -259,6 +263,16 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     // In pan mode (current_tool === null), allow panning by not capturing events
     if (!current_tool) {
       // Do not stop propagation; allow parent to handle pan
+      return;
+    }
+
+    // For FreeText tool, open dialog immediately on click (no drag needed)
+    if (current_tool === 'FreeText') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (on_freetext_click) {
+        on_freetext_click(point.x, point.y);
+      }
       return;
     }
 

@@ -159,7 +159,7 @@ export const WithFileInput: Story = {
             url={pdfUrl}
             annotations={annotations}
             on_annotation_create={handleAnnotationCreate}
-            config_file="hazo_pdf_config.ini"
+            config_file="config/hazo_pdf_config.ini"
           />
         </div>
       </div>
@@ -193,7 +193,7 @@ export const Default: Story = {
   args: {
     url: '/sample.pdf',
     scale: 1.0,
-    config_file: 'hazo_pdf_config.ini',
+    config_file: 'config/hazo_pdf_config.ini',
   },
   parameters: {
     docs: {
@@ -285,7 +285,7 @@ export const WithAnnotations: Story = {
             {...args}
             annotations={annotations}
             on_annotation_create={handleAnnotationCreate}
-            config_file="hazo_pdf_config.ini"
+            config_file="config/hazo_pdf_config.ini"
           />
         </div>
       </div>

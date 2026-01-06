@@ -57,9 +57,9 @@ async function load_config_browser(config_file: string): Promise<PdfViewerConfig
   try {
     // In Next.js, serve config via API route that uses hazo_config
     // This ensures the config file stays in root and hazo_config is used server-side
-    // If config_file is a relative path (hazo_pdf_config.ini), use /api/config
+    // If config_file is a relative path (config/hazo_pdf_config.ini), use /api/config
     // If it's already a full URL or API path, use it directly
-    const config_url = (config_file === 'hazo_pdf_config.ini' || config_file.includes('hazo_pdf_config.ini'))
+    const config_url = (config_file === 'config/hazo_pdf_config.ini' || config_file.includes('config/hazo_pdf_config.ini'))
       ? '/api/config'
       : config_file;
     
@@ -492,6 +492,10 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
       toolbar_show_metadata_button: parse_boolean(
         get_value('toolbar', 'toolbar_show_metadata_button'),
         default_config.toolbar.toolbar_show_metadata_button
+      ),
+      toolbar_show_annotate_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_annotate_button'),
+        default_config.toolbar.toolbar_show_annotate_button
       ),
       toolbar_zoom_out_label: parse_string(
         get_value('toolbar', 'toolbar_zoom_out_label'),

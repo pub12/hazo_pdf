@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight, ZoomIn, ZoomOut, RotateCcw, Square, Type } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
@@ -40,6 +40,16 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   sidepanel_metadata_enabled = false,
   metadata_input,
   on_metadata_change,
+  // Toolbar visibility props (override config file values)
+  toolbar_enabled,
+  show_zoom_controls,
+  show_square_button,
+  show_undo_button,
+  show_redo_button,
+  show_save_button,
+  show_metadata_button,
+  show_annotate_button,
+  on_close,
 }) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -760,13 +770,28 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     );
   }
 
-  // Get toolbar config or use defaults
-  const toolbar_config = config_ref.current?.toolbar || default_config.toolbar;
+  // Get toolbar config: props override config file values
+  const base_toolbar_config = config_ref.current?.toolbar || default_config.toolbar;
+  const toolbar_config = {
+    ...base_toolbar_config,
+    // Props override config file values (undefined means use config value)
+    toolbar_show_zoom_controls: show_zoom_controls ?? base_toolbar_config.toolbar_show_zoom_controls,
+    toolbar_show_square_button: show_square_button ?? base_toolbar_config.toolbar_show_square_button,
+    toolbar_show_undo_button: show_undo_button ?? base_toolbar_config.toolbar_show_undo_button,
+    toolbar_show_redo_button: show_redo_button ?? base_toolbar_config.toolbar_show_redo_button,
+    toolbar_show_save_button: show_save_button ?? base_toolbar_config.toolbar_show_save_button,
+    toolbar_show_metadata_button: show_metadata_button ?? base_toolbar_config.toolbar_show_metadata_button,
+    toolbar_show_annotate_button: show_annotate_button ?? base_toolbar_config.toolbar_show_annotate_button,
+  };
+
+  // Master toolbar toggle (defaults to true)
+  const is_toolbar_enabled = toolbar_enabled ?? true;
 
   return (
-    <div className={cn('cls_pdf_viewer', className)}>
+    <div className={cn('hazo-pdf-root cls_pdf_viewer', className)}>
       {/* Toolbar */}
-      <div 
+      {is_toolbar_enabled && (
+      <div
         className="cls_pdf_viewer_toolbar"
         style={{
           backgroundColor: toolbar_config.toolbar_background_color,
@@ -784,6 +809,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               onClick={handle_zoom_out}
               className="cls_pdf_viewer_toolbar_button"
               aria-label="Zoom out"
+              title="Zoom out"
               style={{
                 backgroundColor: toolbar_config.toolbar_button_background_color,
                 color: toolbar_config.toolbar_button_text_color,
@@ -795,7 +821,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
               }}
             >
-              {toolbar_config.toolbar_zoom_out_label}
+              <ZoomOut className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
             <span className="cls_pdf_viewer_zoom_level">
               {Math.round(scale * 100)}%
@@ -805,6 +831,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               onClick={handle_zoom_in}
               className="cls_pdf_viewer_toolbar_button"
               aria-label="Zoom in"
+              title="Zoom in"
               style={{
                 backgroundColor: toolbar_config.toolbar_button_background_color,
                 color: toolbar_config.toolbar_button_text_color,
@@ -816,13 +843,14 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
               }}
             >
-              {toolbar_config.toolbar_zoom_in_label}
+              <ZoomIn className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
             <button
               type="button"
               onClick={handle_zoom_reset}
               className="cls_pdf_viewer_toolbar_button"
               aria-label="Reset zoom"
+              title="Reset zoom"
               style={{
                 backgroundColor: toolbar_config.toolbar_button_background_color,
                 color: toolbar_config.toolbar_button_text_color,
@@ -834,7 +862,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
               }}
             >
-              {toolbar_config.toolbar_zoom_reset_label}
+              <RotateCcw className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
           </div>
         )}
@@ -844,18 +872,19 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
           <div className="cls_pdf_viewer_toolbar_group">
             <button
               type="button"
-              onClick={() => setCurrentTool('Square')}
+              onClick={() => setCurrentTool(current_tool === 'Square' ? null : 'Square')}
               className={cn(
                 'cls_pdf_viewer_toolbar_button',
                 current_tool === 'Square' && 'cls_pdf_viewer_toolbar_button_active'
               )}
               aria-label="Square annotation tool"
+              title="Square annotation"
               style={{
-                backgroundColor: current_tool === 'Square' 
-                  ? toolbar_config.toolbar_button_active_background_color 
+                backgroundColor: current_tool === 'Square'
+                  ? toolbar_config.toolbar_button_active_background_color
                   : toolbar_config.toolbar_button_background_color,
-                color: current_tool === 'Square' 
-                  ? toolbar_config.toolbar_button_active_text_color 
+                color: current_tool === 'Square'
+                  ? toolbar_config.toolbar_button_active_text_color
                   : toolbar_config.toolbar_button_text_color,
               }}
               onMouseEnter={(e) => {
@@ -869,7 +898,43 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 }
               }}
             >
-              {toolbar_config.toolbar_square_label}
+              <Square className="cls_pdf_viewer_toolbar_icon" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Annotate (FreeText) Button */}
+        {toolbar_config.toolbar_show_annotate_button && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={() => setCurrentTool(current_tool === 'FreeText' ? null : 'FreeText')}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                current_tool === 'FreeText' && 'cls_pdf_viewer_toolbar_button_active'
+              )}
+              aria-label="Text annotation tool"
+              title="Text annotation"
+              style={{
+                backgroundColor: current_tool === 'FreeText'
+                  ? toolbar_config.toolbar_button_active_background_color
+                  : toolbar_config.toolbar_button_background_color,
+                color: current_tool === 'FreeText'
+                  ? toolbar_config.toolbar_button_active_text_color
+                  : toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                if (current_tool !== 'FreeText') {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (current_tool !== 'FreeText') {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+                }
+              }}
+            >
+              <Type className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
           </div>
         )}
@@ -903,7 +968,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 }}
               >
                 <Undo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
-                <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_undo_label}</span>
               </button>
             )}
             {toolbar_config.toolbar_show_redo_button && (
@@ -932,7 +996,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 }}
               >
                 <Redo2 className="cls_pdf_viewer_toolbar_icon" size={16} />
-                <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_redo_label}</span>
               </button>
             )}
           </div>
@@ -951,7 +1014,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 (saving || annotations.length === 0) && 'cls_pdf_viewer_toolbar_button_disabled'
               )}
               aria-label="Save annotations to PDF"
-              title={annotations.length === 0 ? 'No annotations to save' : 'Save annotations to PDF'}
+              title={saving ? 'Saving...' : (annotations.length === 0 ? 'No annotations to save' : 'Save annotations to PDF')}
               style={{
                 backgroundColor: toolbar_config.toolbar_button_save_background_color,
                 color: toolbar_config.toolbar_button_save_text_color,
@@ -967,9 +1030,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               }}
             >
               <Save className="cls_pdf_viewer_toolbar_icon" size={16} />
-              <span className="cls_pdf_viewer_toolbar_button_text">
-                {saving ? toolbar_config.toolbar_saving_label : toolbar_config.toolbar_save_label}
-              </span>
             </button>
           </div>
         )}
@@ -1006,11 +1066,35 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               }}
             >
               <PanelRight className="cls_pdf_viewer_toolbar_icon" size={16} />
-              <span className="cls_pdf_viewer_toolbar_button_text">{toolbar_config.toolbar_metadata_label}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Close Button (shown when on_close callback is provided) */}
+        {on_close && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={on_close}
+              className="cls_pdf_viewer_toolbar_button"
+              aria-label="Close viewer"
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              ✕
             </button>
           </div>
         )}
       </div>
+      )}
 
       {/* PDF Viewer Layout with Sidepanel */}
       <div className={cn('cls_pdf_viewer_content_wrapper', sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
@@ -1052,7 +1136,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
             on_context_menu={(e, page_index, screen_x, screen_y, mapper) => {
               const menu_x = e.clientX;
               const menu_y = e.clientY;
-              
+
               setContextMenu({
                 visible: true,
                 x: menu_x,
@@ -1062,6 +1146,20 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                 screen_y,
                 mapper,
               });
+            }}
+            on_freetext_click={(page_index, screen_x, screen_y, mapper) => {
+              // Open text dialog at click position (same behavior as right-click annotate)
+              setTextDialog({
+                open: true,
+                page_index,
+                x: screen_x,
+                y: screen_y,
+                screen_x,
+                screen_y,
+                mapper,
+              });
+              // Deselect the FreeText tool after creating annotation
+              setCurrentTool(null);
             }}
           />
         </div>

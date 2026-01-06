@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-// Import hazo_pdf styles from source (same as what's in the package)
-import "../src/styles/index.css";
+// Import full styles for standalone test app (includes Tailwind preflight)
+// Consumers should use 'hazo_pdf/styles.css' (no preflight) instead
+import "../src/styles/full.css";
 
 export const metadata: Metadata = {
   title: "Test App",

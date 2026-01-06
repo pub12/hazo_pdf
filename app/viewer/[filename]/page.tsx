@@ -153,7 +153,7 @@ export default function ViewerPage() {
             >
               <PdfViewer
                 url={pdf_url}
-                config_file="hazo_pdf_config.ini"
+                config_file="config/hazo_pdf_config.ini"
                 className="cls_viewer_page_pdf_viewer h-full w-full"
                 sidepanel_metadata_enabled={true}
                 metadata_input={metadata}

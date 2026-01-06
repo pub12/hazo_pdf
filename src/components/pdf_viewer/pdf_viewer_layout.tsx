@@ -22,6 +22,7 @@ export interface PdfViewerLayoutProps {
   on_annotation_create: (annotation: PdfAnnotation) => void;
   on_context_menu: (e: React.MouseEvent, page_index: number, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
   on_annotation_click: (annotation: PdfAnnotation, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
+  on_freetext_click?: (page_index: number, screen_x: number, screen_y: number, mapper: CoordinateMapper) => void;
   background_color?: string;
   config: PdfViewerConfig | null;
   className?: string;
@@ -39,6 +40,7 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   on_annotation_create,
   on_context_menu,
   on_annotation_click,
+  on_freetext_click,
   background_color = '#2d2d2d',
   config = null,
   className = '',
@@ -323,6 +325,11 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
                   on_annotation_click={(annotation, screen_x, screen_y) => {
                     if (on_annotation_click && mapper_data.mapper) {
                       on_annotation_click(annotation, screen_x, screen_y, mapper_data.mapper);
+                    }
+                  }}
+                  on_freetext_click={(screen_x, screen_y) => {
+                    if (on_freetext_click && mapper_data.mapper) {
+                      on_freetext_click(index, screen_x, screen_y, mapper_data.mapper);
                     }
                   }}
                 />

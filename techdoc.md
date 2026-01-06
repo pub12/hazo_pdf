@@ -273,7 +273,7 @@ The Web Worker is used for CPU-intensive PDF operations:
     - `below_multi_line` → suffix appended on individual lines (`Text\n[Fixed]\n[timestamp]`).  
 - `append_timestamp_if_enabled()` and `format_stamp_text()` both delegate to `add_suffix_text`, ensuring consistent formatting across entry points.
 - `strip_auto_inserted_suffix()` mirrors the same configuration to detect and remove suffixes before editing, so dialogs show only user-entered content prior to reapplying suffixes.
-- **Configuration** (`[viewer]` in `hazo_pdf_config.ini` / `PdfViewerConfig`):
+- **Configuration** (`[viewer]` in `config/hazo_pdf_config.ini` / `PdfViewerConfig`):
   - `annotation_text_suffix_fixed_text`: optional fixed suffix text (applied when non-empty).  
   - `append_timestamp_to_text_edits`: toggles timestamp suffix for manual text entries.  
   - `add_enclosing_brackets_to_suffixes`: wraps suffixes in the configured brackets.  

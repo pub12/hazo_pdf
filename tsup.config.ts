@@ -6,7 +6,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/styles/index.css'],
+  entry: ['src/index.ts', 'src/styles/index.css', 'src/styles/full.css'],
   format: ['esm'],
   dts: {
     entry: ['src/index.ts'],

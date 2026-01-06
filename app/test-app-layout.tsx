@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { Home, FileText, ChevronRight } from "lucide-react";
+import { Home, FileText, ChevronRight, Layout, MessageSquare, PanelRight, Settings } from "lucide-react";
 
 /**
  * File info from API
@@ -128,6 +128,49 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                       {filesError}
                     </div>
                   )}
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Demos Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className="cls_test_app_sidebar_label">
+              Demos
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/embedded" className="cls_test_app_sidebar_menu_item">
+                      <Layout className="cls_test_app_sidebar_menu_icon" />
+                      <span>Embedded</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/dialog" className="cls_test_app_sidebar_menu_item">
+                      <MessageSquare className="cls_test_app_sidebar_menu_icon" />
+                      <span>Dialog</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/sidepanel" className="cls_test_app_sidebar_menu_item">
+                      <PanelRight className="cls_test_app_sidebar_menu_icon" />
+                      <span>Side Panel</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/toolbar-config" className="cls_test_app_sidebar_menu_item">
+                      <Settings className="cls_test_app_sidebar_menu_icon" />
+                      <span>Toolbar Config</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>

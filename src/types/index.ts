@@ -45,7 +45,7 @@ export interface PdfViewerProps {
   /** Background color for areas outside PDF pages (default: dark grey) */
   background_color?: string;
   
-  /** Optional path to configuration INI file (e.g., "hazo_pdf_config.ini") */
+  /** Optional path to configuration INI file (e.g., "config/hazo_pdf_config.ini") */
   config_file?: string;
   
   /** Whether to append timestamp to annotated text edits (default: false) */
@@ -69,6 +69,35 @@ export interface PdfViewerProps {
   /** Callback when metadata is changed via editing */
   /** Returns both the updated row and the complete metadata structure */
   on_metadata_change?: (updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput };
+
+  // --- Toolbar visibility props (override config file values) ---
+
+  /** Whether to show the toolbar at all (default: true) */
+  toolbar_enabled?: boolean;
+
+  /** Whether to show zoom controls (default: true) */
+  show_zoom_controls?: boolean;
+
+  /** Whether to show square annotation button (default: true) */
+  show_square_button?: boolean;
+
+  /** Whether to show undo button (default: true) */
+  show_undo_button?: boolean;
+
+  /** Whether to show redo button (default: true) */
+  show_redo_button?: boolean;
+
+  /** Whether to show save button (default: true) */
+  show_save_button?: boolean;
+
+  /** Whether to show metadata panel button (default: true, only visible when sidepanel_metadata_enabled) */
+  show_metadata_button?: boolean;
+
+  /** Whether to show annotate (FreeText) button (default: true) */
+  show_annotate_button?: boolean;
+
+  /** Callback when close button is clicked (shows close button in toolbar when provided) */
+  on_close?: () => void;
 }
 
 /**

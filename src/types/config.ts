@@ -183,6 +183,8 @@ export interface PdfViewerConfig {
     toolbar_show_save_button: boolean;
     /** Whether to show metadata panel button (true/false) */
     toolbar_show_metadata_button: boolean;
+    /** Whether to show annotate (FreeText) button (true/false) */
+    toolbar_show_annotate_button: boolean;
     /** Label for zoom out button (default: "−") */
     toolbar_zoom_out_label: string;
     /** Label for zoom in button (default: "+") */

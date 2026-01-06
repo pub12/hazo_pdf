@@ -14,7 +14,7 @@ import { HazoConfig } from 'hazo_config';
  */
 function get_test_app_directory(): string | null {
   try {
-    const config = new HazoConfig({ filePath: 'hazo_pdf_config.ini' });
+    const config = new HazoConfig({ filePath: 'config/hazo_pdf_config.ini' });
     
     // Check if test app is enabled
     const enabled = config.get('test_app', 'test_app_enabled');

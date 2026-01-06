@@ -19,6 +19,47 @@ A React component library for viewing and annotating PDF documents with support 
 npm install hazo_pdf
 ```
 
+## CSS Import Options
+
+The library provides two CSS files to choose from:
+
+### For apps with existing styles (Recommended)
+
+Use `styles.css` - this does NOT include Tailwind preflight/base resets, so it won't interfere with your existing styles:
+
+```tsx
+import 'hazo_pdf/styles.css';
+```
+
+### For standalone apps
+
+Use `styles-full.css` - includes Tailwind preflight/base styles for apps without existing CSS resets:
+
+```tsx
+import 'hazo_pdf/styles-full.css';
+```
+
+## Container Requirements
+
+The PDF viewer requires its parent container to have explicit dimensions:
+
+```tsx
+// Good - explicit dimensions
+<div style={{ width: '100%', height: '600px' }}>
+  <PdfViewer url="/document.pdf" />
+</div>
+
+// Bad - no explicit height
+<div>
+  <PdfViewer url="/document.pdf" />
+</div>
+```
+
+**Requirements:**
+- Parent must have explicit `width` and `height` (CSS or inline style)
+- Recommended minimum size: 400x400px
+- Parent should NOT have `overflow: hidden` (the viewer handles its own scrolling)
+
 ## Quick Start
 
 ```tsx
@@ -307,7 +348,7 @@ function ProductionViewer() {
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <PdfViewer 
           url="/api/documents/contract.pdf"
-          config_file="hazo_pdf_config.ini"
+          config_file="config/hazo_pdf_config.ini"
           className="h-full w-full"
           scale={initialScale}
           annotations={annotations}
@@ -327,7 +368,7 @@ function ProductionViewer() {
 ```
 
 **Features demonstrated:**
-- Configuration file integration (`hazo_pdf_config.ini`)
+- Configuration file integration (`config/hazo_pdf_config.ini`)
 - Custom stamps with styling
 - Timestamp and fixed text suffixes
 - Responsive scaling based on screen size
@@ -340,7 +381,7 @@ function ProductionViewer() {
 
 ## Configuration File
 
-The PDF viewer can be configured via an INI file (default: `hazo_pdf_config.ini`). This allows you to customize styling, colors, fonts, and behavior without modifying code.
+The PDF viewer can be configured via an INI file (default: `config/hazo_pdf_config.ini`). This allows you to customize styling, colors, fonts, and behavior without modifying code.
 
 **Basic setup:**
 
@@ -368,7 +409,7 @@ toolbar_button_save_background_color = rgb(34, 197, 94)
 right_click_custom_stamps = [{"name":"Verified","text":"✅","order":1,"time_stamp_suffix_enabled":true,"fixed_text_suffix_enabled":true}]
 ```
 
-See `hazo_pdf_config.ini` in the project root for all available configuration options.
+See `config/hazo_pdf_config.ini` in the project root for all available configuration options.
 
 ---
 
@@ -391,7 +432,7 @@ See `hazo_pdf_config.ini` in the project root for all available configuration op
 | `className` | `string` | `""` | Additional CSS classes to apply to the viewer container. |
 | `scale` | `number` | `1.0` | Initial zoom level. Values > 1.0 zoom in, < 1.0 zoom out. |
 | `background_color` | `string` | `"#2d2d2d"` | Background color for areas outside PDF pages (hex format: `#RRGGBB`). Overrides config file value. |
-| `config_file` | `string` | `undefined` | Path to configuration INI file (e.g., `"hazo_pdf_config.ini"`). If not provided, uses default configuration. |
+| `config_file` | `string` | `undefined` | Path to configuration INI file (e.g., `"config/hazo_pdf_config.ini"`). If not provided, uses default configuration. |
 
 ##### Event Callbacks
 
@@ -469,9 +510,47 @@ const stamps = JSON.stringify([
   }
 ]);
 
-<PdfViewer 
+<PdfViewer
   url="/document.pdf"
   right_click_custom_stamps={stamps}
+/>
+```
+
+##### Toolbar Visibility
+
+Props to control toolbar button visibility. These override config file values.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `toolbar_enabled` | `boolean` | `true` | Master toggle to show/hide the entire toolbar. |
+| `show_zoom_controls` | `boolean` | `true` | Show zoom in/out/reset buttons. |
+| `show_square_button` | `boolean` | `true` | Show square annotation button. |
+| `show_undo_button` | `boolean` | `true` | Show undo button. |
+| `show_redo_button` | `boolean` | `true` | Show redo button. |
+| `show_save_button` | `boolean` | `true` | Show save button. |
+| `show_metadata_button` | `boolean` | `true` | Show metadata panel button (only visible when `sidepanel_metadata_enabled` is true). |
+| `on_close` | `() => void` | `undefined` | Callback when close button is clicked. When provided, shows a close button (X) in the toolbar. Useful for modal/dialog usage. |
+
+**Example - Minimal toolbar:**
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  toolbar_enabled={true}
+  show_zoom_controls={true}
+  show_square_button={false}
+  show_undo_button={false}
+  show_redo_button={false}
+  show_save_button={false}
+/>
+```
+
+**Example - Dialog with close button:**
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  on_close={() => setDialogOpen(false)}
 />
 ```
 

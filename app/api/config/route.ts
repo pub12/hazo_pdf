@@ -11,12 +11,12 @@ import { HazoConfig } from 'hazo_config';
 
 /**
  * GET handler - Serve the config file content
- * Reads hazo_pdf_config.ini from root directory using hazo_config
+ * Reads config/hazo_pdf_config.ini from root directory using hazo_config
  * Uses hazo_config to validate and access the config file (same as other API routes)
  */
 export async function GET(_request: NextRequest) {
   try {
-    const config_file = 'hazo_pdf_config.ini';
+    const config_file = 'config/hazo_pdf_config.ini';
     
     // Use hazo_config to read the config file (same approach as other API routes)
     // This ensures consistency with how other parts of the code read the config
