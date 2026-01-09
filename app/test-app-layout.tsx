@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { Home, FileText, ChevronRight, Layout, MessageSquare, PanelRight, Settings } from "lucide-react";
+import { Home, FileText, ChevronRight, Layout, MessageSquare, PanelRight, Settings, Highlighter } from "lucide-react";
 
 /**
  * File info from API
@@ -169,6 +169,14 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                     <Link href="/demo/toolbar-config" className="cls_test_app_sidebar_menu_item">
                       <Settings className="cls_test_app_sidebar_menu_icon" />
                       <span>Toolbar Config</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/highlight" className="cls_test_app_sidebar_menu_item">
+                      <Highlighter className="cls_test_app_sidebar_menu_icon" />
+                      <span>Highlight API</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

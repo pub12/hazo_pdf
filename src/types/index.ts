@@ -278,3 +278,47 @@ export interface MetadataInput {
   footer: MetadataFooterItem[];
 }
 
+/**
+ * Options for programmatic highlight creation via PdfViewerRef
+ */
+export interface HighlightOptions {
+  /** Border color in hex format (default: from config highlight_border_color) */
+  border_color?: string;
+  /** Background/fill color in hex format (default: from config highlight_fill_color) */
+  background_color?: string;
+  /** Background opacity 0-1 (default: from config highlight_fill_opacity) */
+  background_opacity?: number;
+}
+
+/**
+ * Ref interface for programmatic PDF viewer control
+ * Use with useRef<PdfViewerRef>() to get access to imperative methods
+ */
+export interface PdfViewerRef {
+  /**
+   * Create a highlight on a specific page region
+   * @param page_index - Zero-based page index
+   * @param rect - Rectangle coordinates in PDF space [x1, y1, x2, y2]
+   * @param options - Optional styling overrides (border_color, background_color, background_opacity)
+   * @returns The highlight annotation ID
+   */
+  highlight_region: (
+    page_index: number,
+    rect: [number, number, number, number],
+    options?: HighlightOptions
+  ) => string;
+
+  /**
+   * Remove a specific highlight by ID
+   * @param id - The highlight annotation ID returned from highlight_region
+   * @returns true if highlight was found and removed, false otherwise
+   */
+  remove_highlight: (id: string) => boolean;
+
+  /**
+   * Remove all highlights created via the highlight_region API
+   * Does not affect user-created annotations
+   */
+  clear_all_highlights: () => void;
+}
+

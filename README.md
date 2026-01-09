@@ -6,6 +6,7 @@ A React component library for viewing and annotating PDF documents with support 
 
 - 📄 **PDF Viewing** - Render PDF documents with customizable zoom levels
 - ✏️ **Annotations** - Square and FreeText annotation tools
+- 🔍 **Programmatic Highlights** - Ref-based API for creating and managing highlights programmatically
 - 🎨 **Customizable Styling** - Extensive configuration options via INI file
 - ⏰ **Timestamp Support** - Automatic timestamp appending to annotations
 - 🏷️ **Custom Stamps** - Add quick-insert stamps via right-click menu
@@ -413,6 +414,204 @@ See `config/hazo_pdf_config.ini` in the project root for all available configura
 
 ---
 
+## Programmatic Highlight API
+
+The PDF viewer exposes a ref-based API for programmatically creating, removing, and managing highlights. This allows external code to control highlights without user interaction.
+
+### Basic Usage
+
+```tsx
+import { PdfViewer, PdfViewerRef } from 'hazo_pdf';
+import { useRef } from 'react';
+import 'hazo_pdf/styles.css';
+
+function HighlightExample() {
+  const viewer_ref = useRef<PdfViewerRef>(null);
+
+  const add_highlight = () => {
+    // Highlight region on page 0 at PDF coordinates [100, 500, 300, 550]
+    const id = viewer_ref.current?.highlight_region(0, [100, 500, 300, 550], {
+      border_color: '#FF0000',
+      background_color: '#FFFF00',
+      background_opacity: 0.4
+    });
+    console.log('Created highlight:', id);
+  };
+
+  const remove_specific_highlight = (id: string) => {
+    const removed = viewer_ref.current?.remove_highlight(id);
+    console.log('Highlight removed:', removed);
+  };
+
+  const clear_all = () => {
+    viewer_ref.current?.clear_all_highlights();
+  };
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <button onClick={add_highlight}>Add Highlight</button>
+      <button onClick={clear_all}>Clear All Highlights</button>
+
+      <PdfViewer
+        ref={viewer_ref}
+        url="/document.pdf"
+      />
+    </div>
+  );
+}
+```
+
+### PdfViewerRef Interface
+
+The ref exposes three methods for highlight management:
+
+#### `highlight_region(page_index, rect, options?)`
+
+Creates a new highlight annotation on the specified page.
+
+**Parameters:**
+- `page_index` (number): Zero-based page index where the highlight should appear
+- `rect` ([number, number, number, number]): Rectangle coordinates in PDF space [x1, y1, x2, y2]
+- `options` (HighlightOptions, optional): Styling options
+
+**Returns:** `string` - The unique ID of the created highlight annotation
+
+**HighlightOptions:**
+```typescript
+{
+  border_color?: string;       // Hex color (e.g., "#FF0000")
+  background_color?: string;   // Hex color (e.g., "#FFFF00")
+  background_opacity?: number; // 0-1 (e.g., 0.4)
+}
+```
+
+**Example:**
+```tsx
+const id = viewer_ref.current?.highlight_region(
+  0,                      // Page 0
+  [100, 500, 300, 550],   // PDF coordinates
+  {
+    border_color: '#FF0000',
+    background_color: '#FFFF00',
+    background_opacity: 0.4
+  }
+);
+```
+
+#### `remove_highlight(id)`
+
+Removes a specific highlight by its ID.
+
+**Parameters:**
+- `id` (string): The highlight ID returned from `highlight_region()`
+
+**Returns:** `boolean` - `true` if the highlight was found and removed, `false` otherwise
+
+**Example:**
+```tsx
+const removed = viewer_ref.current?.remove_highlight('highlight-123');
+if (removed) {
+  console.log('Highlight removed successfully');
+}
+```
+
+#### `clear_all_highlights()`
+
+Removes all highlights created via the `highlight_region()` API. Does not affect user-created annotations.
+
+**Example:**
+```tsx
+viewer_ref.current?.clear_all_highlights();
+```
+
+### Advanced Example: Search Results Highlighting
+
+A common use case is highlighting search results in a PDF:
+
+```tsx
+import { useState, useRef } from 'react';
+import { PdfViewer, PdfViewerRef } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+interface SearchResult {
+  page: number;
+  rect: [number, number, number, number];
+  text: string;
+}
+
+function SearchableViewer() {
+  const viewer_ref = useRef<PdfViewerRef>(null);
+  const [highlight_ids, set_highlight_ids] = useState<string[]>([]);
+
+  // Simulated search results
+  const search_results: SearchResult[] = [
+    { page: 0, rect: [100, 500, 300, 550], text: 'Result 1' },
+    { page: 0, rect: [100, 400, 300, 450], text: 'Result 2' },
+    { page: 1, rect: [150, 600, 350, 650], text: 'Result 3' }
+  ];
+
+  const highlight_search_results = () => {
+    // Clear previous highlights
+    viewer_ref.current?.clear_all_highlights();
+
+    // Add new highlights
+    const ids = search_results.map(result =>
+      viewer_ref.current?.highlight_region(result.page, result.rect, {
+        border_color: '#3B82F6',
+        background_color: '#DBEAFE',
+        background_opacity: 0.3
+      })
+    ).filter(Boolean) as string[];
+
+    set_highlight_ids(ids);
+  };
+
+  const clear_search = () => {
+    viewer_ref.current?.clear_all_highlights();
+    set_highlight_ids([]);
+  };
+
+  return (
+    <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '1rem', background: '#f0f0f0' }}>
+        <button onClick={highlight_search_results}>
+          Highlight Search Results ({search_results.length})
+        </button>
+        <button onClick={clear_search}>Clear Highlights</button>
+        <span>Highlighted: {highlight_ids.length} results</span>
+      </div>
+
+      <div style={{ flex: 1 }}>
+        <PdfViewer
+          ref={viewer_ref}
+          url="/document.pdf"
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### Coordinate System Notes
+
+- Highlights use PDF coordinate space (points), not screen pixels
+- PDF coordinates start at the bottom-left corner (Y increases upward)
+- The `rect` parameter format is `[x1, y1, x2, y2]` where:
+  - `x1, y1`: Bottom-left corner
+  - `x2, y2`: Top-right corner
+- If you need to convert screen coordinates to PDF coordinates, you'll need to use the PDF page viewport (see the test app for examples)
+
+### Styling Defaults
+
+If no `options` are provided to `highlight_region()`, the highlight uses default colors from the configuration file:
+- `border_color`: From `highlight_border_color` config setting
+- `background_color`: From `highlight_fill_color` config setting
+- `background_opacity`: From `highlight_fill_opacity` config setting
+
+You can override any or all of these on a per-highlight basis.
+
+---
+
 ## API Reference
 
 ### PdfViewer Props
@@ -570,6 +769,40 @@ interface PdfAnnotation {
   color?: string;                          // Color in hex format (e.g., "#FF0000")
   subject?: string;                        // Optional subject/title
   flags?: string;                          // Optional PDF flags
+}
+```
+
+**Note:** Highlights created via the programmatic API (`PdfViewerRef.highlight_region()`) will have `type: 'Highlight'` and `flags: 'api_highlight'` to distinguish them from user-created annotations.
+
+### PdfViewerRef Interface
+
+Interface for the ref exposed by `PdfViewer`. Use with `useRef<PdfViewerRef>()` to access programmatic highlight methods.
+
+```typescript
+interface PdfViewerRef {
+  highlight_region: (
+    page_index: number,
+    rect: [number, number, number, number],
+    options?: HighlightOptions
+  ) => string;
+
+  remove_highlight: (id: string) => boolean;
+
+  clear_all_highlights: () => void;
+}
+```
+
+See [Programmatic Highlight API](#programmatic-highlight-api) for detailed usage.
+
+### HighlightOptions Interface
+
+Options for customizing highlights created via the API.
+
+```typescript
+interface HighlightOptions {
+  border_color?: string;       // Hex format (e.g., "#FF0000")
+  background_color?: string;   // Hex format (e.g., "#FFFF00")
+  background_opacity?: number; // 0-1 (e.g., 0.4)
 }
 ```
 

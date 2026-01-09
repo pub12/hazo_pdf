@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { TestAppLayout } from "../../test-app-layout";

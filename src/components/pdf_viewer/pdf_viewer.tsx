@@ -4,7 +4,7 @@
  * Integrates PDF rendering, annotation overlay, and layout management
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { Save, Undo2, Redo2, PanelRight, ZoomIn, ZoomOut, RotateCcw, Square, Type } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
@@ -12,7 +12,7 @@ import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
 import { MetadataSidepanel } from './metadata_sidepanel';
-import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp, MetadataInput, MetadataDataItem } from '../../types';
+import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp, MetadataInput, MetadataDataItem, PdfViewerRef, HighlightOptions } from '../../types';
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
@@ -21,7 +21,7 @@ import { cn } from '../../utils/cn';
  * PDF Viewer Component
  * Main entry point for PDF viewing and annotation
  */
-export const PdfViewer: React.FC<PdfViewerProps> = ({
+export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   url,
   className = '',
   scale: initial_scale = 1.0,
@@ -50,7 +50,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   show_metadata_button,
   show_annotate_button,
   on_close,
-}) => {
+}, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -611,6 +611,71 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
+  // Expose imperative methods via ref for programmatic control
+  useImperativeHandle(ref, () => ({
+    /**
+     * Create a highlight on a specific page region
+     * @param page_index - Zero-based page index
+     * @param rect - Rectangle coordinates in PDF space [x1, y1, x2, y2]
+     * @param options - Optional styling overrides
+     * @returns The highlight annotation ID
+     */
+    highlight_region: (
+      page_index: number,
+      rect: [number, number, number, number],
+      options?: HighlightOptions
+    ): string => {
+      const highlight_config = config_ref.current?.highlight_annotation || default_config.highlight_annotation;
+
+      const annotation: PdfAnnotation = {
+        id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'Highlight',
+        page_index,
+        rect,
+        author: 'API',
+        date: new Date().toISOString(),
+        contents: '',
+        color: options?.background_color || highlight_config.highlight_fill_color,
+        flags: 'api_highlight', // Marker to identify API-created highlights
+      };
+
+      // Store custom options in subject field as JSON (for rendering)
+      if (options) {
+        annotation.subject = JSON.stringify({
+          border_color: options.border_color,
+          background_color: options.background_color,
+          background_opacity: options.background_opacity,
+        });
+      }
+
+      handle_annotation_create(annotation);
+      return annotation.id;
+    },
+
+    /**
+     * Remove a specific highlight by ID
+     * @param id - The highlight annotation ID
+     * @returns true if highlight was found and removed
+     */
+    remove_highlight: (id: string): boolean => {
+      const annotation = annotations.find(a => a.id === id);
+      if (annotation) {
+        handle_annotation_delete(id);
+        return true;
+      }
+      return false;
+    },
+
+    /**
+     * Remove all highlights created via the highlight_region API
+     */
+    clear_all_highlights: (): void => {
+      const api_highlights = annotations.filter(a => a.flags === 'api_highlight');
+      api_highlights.forEach(a => handle_annotation_delete(a.id));
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [annotations, handle_annotation_create, handle_annotation_delete]);
+
   // Handle undo
   const handle_undo = useCallback(() => {
     if (history_index > 0) {
@@ -718,16 +783,16 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
 
       // Import save function to get PDF bytes
       const { save_annotations_to_pdf, download_pdf } = await import('../../utils/pdf_saver');
-      
+
       // Save annotations to PDF and get the modified bytes
       const pdf_bytes = await save_annotations_to_pdf(url, annotations, output_filename, config_ref.current);
-      
-      // Download the modified PDF
-      download_pdf(pdf_bytes, output_filename);
 
-      // If callback is provided, call it with the modified PDF bytes
+      // If callback is provided, call it (caller handles save/download)
+      // Otherwise, download the modified PDF
       if (on_save) {
         on_save(pdf_bytes, output_filename);
+      } else {
+        download_pdf(pdf_bytes, output_filename);
       }
     } catch (error) {
       console.error('PdfViewer: Error saving PDF:', error);
@@ -1375,7 +1440,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       )}
     </div>
   );
-};
+});
+
+// Set display name for debugging
+PdfViewer.displayName = 'PdfViewer';
 
 export default PdfViewer;
 

@@ -694,20 +694,44 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     // Get fill properties based on annotation type for rectangle annotations
     const get_annotation_props = () => {
       switch (annotation.type) {
-        case 'Highlight':
-          // Use annotation color if provided, otherwise use config
-          const highlight_color = annotation.color || highlight_config.highlight_fill_color;
+        case 'Highlight': {
+          // Check for custom options in subject field (from API highlight_region)
+          let custom_highlight_options: {
+            border_color?: string;
+            background_color?: string;
+            background_opacity?: number;
+          } | null = null;
+
+          if (annotation.subject) {
+            try {
+              custom_highlight_options = JSON.parse(annotation.subject);
+            } catch {
+              // Not JSON, ignore
+            }
+          }
+
+          // Use custom colors if provided, then annotation color, then config defaults
+          const highlight_fill_color = custom_highlight_options?.background_color ||
+            annotation.color ||
+            highlight_config.highlight_fill_color;
+          const highlight_fill_opacity = custom_highlight_options?.background_opacity ??
+            highlight_config.highlight_fill_opacity;
+          const highlight_border_color = custom_highlight_options?.border_color ||
+            highlight_config.highlight_border_color;
+
           return {
-            fill: hex_to_rgba(highlight_color, highlight_config.highlight_fill_opacity),
-            stroke: highlight_config.highlight_border_color,
+            fill: hex_to_rgba(highlight_fill_color, highlight_fill_opacity),
+            stroke: highlight_border_color,
           };
-        case 'Square':
+        }
+        case 'Square': {
           // Use annotation color if provided, otherwise use config
           const square_color = annotation.color || square_config.square_fill_color;
           return {
             fill: hex_to_rgba(square_color, square_config.square_fill_opacity),
             stroke: square_config.square_border_color,
           };
+        }
         default:
           return {
             fill: 'rgba(0, 0, 255, 0.2)',

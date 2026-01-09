@@ -1,12 +1,14 @@
-# Source files
+# Source files (dist/ is the distribution)
 src/
 
 # Configuration files
 tsconfig.json
+tsconfig.next.json
 tsup.config.ts
-tailwind.config.js
-postcss.config.js
+tailwind.config.cjs
+postcss.config.cjs
 .eslintrc.json
+components.json
 
 # Development files
 .cursor/
@@ -16,17 +18,40 @@ postcss.config.js
 
 # Documentation (keep README.md)
 techdoc.md
+CLAUDE.md
 
-# Dependencies
-node_modules/
+# Test app (Next.js)
+app/
+.next/
+next.config.mjs
+next-env.d.ts
+utils.ts
 
-# Test files
+# Storybook
+.storybook/
+stories/
+
+# shadcn/ui components (not part of library)
+components/
+
+# Test files and data
+test/
 *.test.ts
 *.test.tsx
 *.spec.ts
 *.spec.tsx
 
+# Dependencies
+node_modules/
+
 # Misc
 .DS_Store
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+*.tmp
+*.swp
+.env*
 
