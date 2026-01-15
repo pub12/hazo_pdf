@@ -63,10 +63,23 @@ npm run lint
 - **Module System**: ESM only
 - **Peer Dependencies**: React 18+ required (not bundled)
 
+## CSS Architecture
+
+### Style Files
+- **src/styles/index.css**: Component styles (`.cls_*` classes) - used by consuming apps
+- **src/styles/full.css**: Includes Tailwind base + imports index.css - used by test app only
+
+### Tailwind Integration Gotchas
+- `full.css` must import `index.css` BEFORE `@tailwind` directives (PostCSS requirement)
+- Tailwind's preflight resets borders to 0 - use `!important` on border properties in component styles
+- When styles don't apply, check: (1) CSS file is imported, (2) specificity vs Tailwind reset
+- Test app imports `full.css` in `app/layout.tsx`; consuming apps import `hazo_pdf/styles.css`
+
 ## Testing
 
 - Place test PDFs in `test/pdfs/`
 - Test app at `app/` directory (Next.js) accessed via `npm run test-app:dev`
+- Use Chrome browser automation tools to verify rendered styles match expectations
 
 ## Key Files
 

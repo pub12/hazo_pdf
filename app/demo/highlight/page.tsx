@@ -6,12 +6,12 @@
 "use client";
 
 import { Suspense, lazy, useRef, useState } from "react";
-import { TestAppLayout } from "@/app/test-app-layout";
-import type { PdfViewerRef } from "hazo_pdf";
+import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
+import type { PdfViewerRef } from "@/app/lib/hazo_pdf";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
-  import("hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
+  import("@/app/lib/hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
 );
 
 /**
@@ -87,9 +87,9 @@ export default function HighlightDemoPage() {
         </div>
 
         {/* Code Example */}
-        <div className="cls_demo_code mb-4 p-4 bg-gray-100 rounded-lg overflow-auto">
-          <pre className="text-sm">
-{`import { PdfViewer, PdfViewerRef } from 'hazo_pdf';
+        <CodePreview
+          title="Code Example"
+          code={`import { PdfViewer, PdfViewerRef } from 'hazo_pdf';
 import { useRef } from 'react';
 
 function App() {
@@ -111,8 +111,7 @@ function App() {
 
   return <PdfViewer ref={viewer_ref} url="/document.pdf" />;
 }`}
-          </pre>
-        </div>
+        />
 
         {/* Controls */}
         <div className="cls_demo_controls mb-4 flex flex-wrap gap-2">

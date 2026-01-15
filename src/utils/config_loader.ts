@@ -534,6 +534,140 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         default_config.toolbar.toolbar_metadata_label
       ),
     },
+
+    file_manager: {
+      file_manager_enabled: parse_boolean(
+        get_value('file_manager', 'file_manager_enabled'),
+        default_config.file_manager.file_manager_enabled
+      ),
+      show_file_list: parse_boolean(
+        get_value('file_manager', 'show_file_list'),
+        default_config.file_manager.show_file_list
+      ),
+      allow_delete: parse_boolean(
+        get_value('file_manager', 'allow_delete'),
+        default_config.file_manager.allow_delete
+      ),
+      show_popout_button: parse_boolean(
+        get_value('file_manager', 'show_popout_button'),
+        default_config.file_manager.show_popout_button
+      ),
+      file_list_height: parse_number(
+        get_value('file_manager', 'file_list_height'),
+        default_config.file_manager.file_list_height
+      ),
+      selected_color: parse_color(
+        get_value('file_manager', 'selected_color'),
+        default_config.file_manager.selected_color
+      ),
+      file_list_background_color: parse_color(
+        get_value('file_manager', 'file_list_background_color'),
+        default_config.file_manager.file_list_background_color
+      ),
+      file_list_border_color: parse_color(
+        get_value('file_manager', 'file_list_border_color'),
+        default_config.file_manager.file_list_border_color
+      ),
+    },
+
+    file_upload: {
+      upload_enabled: parse_boolean(
+        get_value('file_upload', 'upload_enabled'),
+        default_config.file_upload.upload_enabled
+      ),
+      allowed_types: parse_string(
+        get_value('file_upload', 'allowed_types'),
+        default_config.file_upload.allowed_types
+      ),
+      max_file_size: parse_number(
+        get_value('file_upload', 'max_file_size'),
+        default_config.file_upload.max_file_size
+      ),
+      max_files: parse_number(
+        get_value('file_upload', 'max_files'),
+        default_config.file_upload.max_files
+      ),
+      show_add_button: parse_boolean(
+        get_value('file_upload', 'show_add_button'),
+        default_config.file_upload.show_add_button
+      ),
+      dropzone_border_color: parse_color(
+        get_value('file_upload', 'dropzone_border_color'),
+        default_config.file_upload.dropzone_border_color
+      ),
+      dropzone_border_color_active: parse_color(
+        get_value('file_upload', 'dropzone_border_color_active'),
+        default_config.file_upload.dropzone_border_color_active
+      ),
+      dropzone_background_color: parse_color(
+        get_value('file_upload', 'dropzone_background_color'),
+        default_config.file_upload.dropzone_background_color
+      ),
+    },
+
+    pdf_conversion: {
+      conversion_enabled: parse_boolean(
+        get_value('pdf_conversion', 'conversion_enabled'),
+        default_config.pdf_conversion.conversion_enabled
+      ),
+      page_size: (() => {
+        const raw_value = parse_string(
+          get_value('pdf_conversion', 'page_size'),
+          default_config.pdf_conversion.page_size
+        ) as 'letter' | 'a4' | 'legal';
+        const valid_values: Array<'letter' | 'a4' | 'legal'> = ['letter', 'a4', 'legal'];
+        if (valid_values.includes(raw_value)) {
+          return raw_value;
+        }
+        return default_config.pdf_conversion.page_size;
+      })(),
+      image_quality: parse_opacity(
+        get_value('pdf_conversion', 'image_quality'),
+        default_config.pdf_conversion.image_quality
+      ),
+      image_fit: (() => {
+        const raw_value = parse_string(
+          get_value('pdf_conversion', 'image_fit'),
+          default_config.pdf_conversion.image_fit
+        ) as 'fit' | 'fill' | 'stretch';
+        const valid_values: Array<'fit' | 'fill' | 'stretch'> = ['fit', 'fill', 'stretch'];
+        if (valid_values.includes(raw_value)) {
+          return raw_value;
+        }
+        return default_config.pdf_conversion.image_fit;
+      })(),
+      margin: parse_number(
+        get_value('pdf_conversion', 'margin'),
+        default_config.pdf_conversion.margin
+      ),
+    },
+
+    file_button: {
+      icon_size: parse_number(
+        get_value('file_button', 'icon_size'),
+        default_config.file_button.icon_size
+      ),
+      icon_color: parse_color(
+        get_value('file_button', 'icon_color'),
+        default_config.file_button.icon_color
+      ),
+      icon_color_hover: parse_color(
+        get_value('file_button', 'icon_color_hover'),
+        default_config.file_button.icon_color_hover
+      ),
+      icon_color_with_files: parse_color(
+        get_value('file_button', 'icon_color_with_files'),
+        default_config.file_button.icon_color_with_files
+      ),
+      badge_background: parse_color(
+        get_value('file_button', 'badge_background'),
+        default_config.file_button.badge_background
+      ),
+      badge_text_color: parse_color(
+        get_value('file_button', 'badge_text_color'),
+        default_config.file_button.badge_text_color
+      ),
+    },
   };
 }
 

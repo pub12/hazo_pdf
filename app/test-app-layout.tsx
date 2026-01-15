@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { Home, FileText, ChevronRight, Layout, MessageSquare, PanelRight, Settings, Highlighter } from "lucide-react";
+import { Home, FileText, ChevronRight, ChevronDown, Layout, MessageSquare, PanelRight, Settings, Highlighter, Files, Code } from "lucide-react";
 
 /**
  * File info from API
@@ -34,6 +34,45 @@ interface FileInfo {
  */
 interface TestAppLayoutProps {
   children?: React.ReactNode;
+}
+
+/**
+ * Props for CodePreview component
+ */
+interface CodePreviewProps {
+  code: string;
+  title?: string;
+}
+
+/**
+ * Collapsible code preview component - closed by default
+ */
+export function CodePreview({ code, title = "Code Example" }: CodePreviewProps) {
+  const [is_open, setIsOpen] = useState(false);
+
+  return (
+    <div className="cls_code_preview mb-4 border rounded-lg overflow-hidden bg-gray-50">
+      <button
+        onClick={() => setIsOpen(!is_open)}
+        className="cls_code_preview_header w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+      >
+        <Code size={16} className="text-gray-500" />
+        <span>{title}</span>
+        {is_open ? (
+          <ChevronDown size={16} className="ml-auto text-gray-400" />
+        ) : (
+          <ChevronRight size={16} className="ml-auto text-gray-400" />
+        )}
+      </button>
+      {is_open && (
+        <div className="cls_code_preview_content border-t bg-white">
+          <pre className="p-4 text-sm overflow-auto max-h-[400px]">
+            <code>{code}</code>
+          </pre>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -133,10 +172,10 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {/* Demos Section */}
+          {/* Layout Demos Section */}
           <SidebarGroup>
             <SidebarGroupLabel className="cls_test_app_sidebar_label">
-              Demos
+              Layout Demos
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -164,6 +203,17 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Configuration Demos Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className="cls_test_app_sidebar_label">
+              Configuration
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <Link href="/demo/toolbar-config" className="cls_test_app_sidebar_menu_item">
@@ -177,6 +227,25 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                     <Link href="/demo/highlight" className="cls_test_app_sidebar_menu_item">
                       <Highlighter className="cls_test_app_sidebar_menu_icon" />
                       <span>Highlight API</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* File Management Demos Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className="cls_test_app_sidebar_label">
+              File Management
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/multi-file" className="cls_test_app_sidebar_menu_item">
+                      <Files className="cls_test_app_sidebar_menu_icon" />
+                      <span>Multi-File</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

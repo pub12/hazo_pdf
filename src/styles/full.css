@@ -4,6 +4,8 @@
  * For apps with existing styles, use styles.css (index.css) instead
  */
 
+@import './index.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

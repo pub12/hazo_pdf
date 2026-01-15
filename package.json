@@ -49,8 +49,10 @@
     "lucide-react": "^0.344.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
+    "react-icons": "^5.5.0",
     "shadcn": "^3.5.0",
-    "tailwind-merge": "^2.2.1"
+    "tailwind-merge": "^2.2.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "^7.6.17",
@@ -63,10 +65,10 @@
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
-    "concurrently": "^8.2.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -88,7 +90,7 @@
     "prepublishOnly": "npm run build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test-app:dev": "concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
+    "dev:test-app": "concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
     "test-app:build": "next build",
     "test-app:start": "next start"
   }

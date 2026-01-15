@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight, ZoomIn, ZoomOut, RotateCcw, Square, Type } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight, ZoomIn, ZoomOut, RotateCcw, Square, Type, ExternalLink } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
@@ -16,6 +16,11 @@ import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, 
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
+import { FileManager } from '../file_manager';
+import type { FileItem, PopoutContext } from '../file_manager/types';
+
+// Storage key for popout context
+const POPOUT_STORAGE_KEY = 'hazo_pdf_popout';
 
 /**
  * PDF Viewer Component
@@ -25,6 +30,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   url,
   className = '',
   scale: initial_scale = 1.0,
+  fit_to_width = false,
   on_load,
   on_error,
   annotations: initial_annotations = [],
@@ -50,6 +56,17 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   show_metadata_button,
   show_annotate_button,
   on_close,
+  // Multi-file support props
+  files,
+  on_file_select,
+  on_file_delete,
+  on_upload,
+  on_files_change,
+  // file_manager_display_mode is reserved for future use (dialog/standalone modes)
+  enable_popout = false,
+  popout_route = '/pdf-viewer',
+  on_popout,
+  viewer_title,
 }, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +79,42 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // Sidepanel state
   const [sidepanel_open, setSidepanelOpen] = useState(false);
   const [sidepanel_width, setSidepanelWidth] = useState(300);
-  
+
+  // Multi-file state
+  const [current_file, setCurrentFile] = useState<FileItem | null>(
+    files && files.length > 0 ? files[0] : null
+  );
+  // Multi-file mode is enabled when files prop is provided (even if empty array)
+  // This allows showing the file manager for uploads when no files exist yet
+  const is_multi_file_mode = files !== undefined;
+
+  // Get the effective URL for loading (single file mode or from current file in multi-file mode)
+  const effective_url = is_multi_file_mode ? current_file?.url : url;
+
+  // Content container ref for fit-to-width calculations
+  const content_container_ref = useRef<HTMLDivElement>(null);
+
+  // First page dimensions for fit-to-width calculation (at scale=1)
+  const [first_page_width, setFirstPageWidth] = useState<number | null>(null);
+
+  // Sync current_file when files prop changes
+  useEffect(() => {
+    if (files && files.length > 0) {
+      // If current file is not in the new files array, select the first file
+      if (!current_file || !files.find(f => f.id === current_file.id)) {
+        setCurrentFile(files[0]);
+      }
+    } else {
+      setCurrentFile(null);
+    }
+  }, [files]);
+
+  // Handle file selection in multi-file mode
+  const handle_file_select = useCallback((file: FileItem) => {
+    setCurrentFile(file);
+    on_file_select?.(file);
+  }, [on_file_select]);
+
   // Load configuration from file
   const config_ref = useRef<PdfViewerConfig | null>(null);
   
@@ -509,7 +561,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     setHistory([initial_annotations]);
     setHistoryIndex(0);
     history_ref.current.saving = false;
-  }, [url]); // Reset history when PDF URL changes
+  }, [effective_url]); // Reset history when PDF URL changes
 
   // Load PDF document
   useEffect(() => {
@@ -517,9 +569,15 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     if (typeof window === 'undefined') {
       return;
     }
-    
-    if (!url) {
-      console.warn('PdfViewer: No URL provided');
+
+    if (!effective_url) {
+      // In multi-file mode with no files, this is expected - not loading, just empty
+      if (is_multi_file_mode) {
+        setLoading(false);
+        setPdfDocument(null);
+      } else {
+        console.warn('PdfViewer: No URL provided');
+      }
       return;
     }
 
@@ -529,7 +587,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     // Use a timeout to ensure we're fully in browser context
     // This helps with React Strict Mode and SSR hydration issues
     const load_timeout = setTimeout(() => {
-      load_pdf_document(url)
+      load_pdf_document(effective_url)
         .then((document) => {
           setPdfDocument(document);
           setLoading(false);
@@ -552,7 +610,61 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     return () => {
       clearTimeout(load_timeout);
     };
-  }, [url, on_load, on_error]);
+  }, [effective_url, on_load, on_error, is_multi_file_mode]);
+
+  // Get first page dimensions when PDF document loads (for fit-to-width calculation)
+  useEffect(() => {
+    if (!pdf_document) {
+      setFirstPageWidth(null);
+      return;
+    }
+
+    // Get first page to determine intrinsic width at scale=1
+    pdf_document.getPage(1).then((page) => {
+      const viewport = page.getViewport({ scale: 1 });
+      setFirstPageWidth(viewport.width);
+    }).catch((err) => {
+      console.error('PdfViewer: Error getting first page dimensions:', err);
+    });
+  }, [pdf_document]);
+
+  // Fit-to-width: Calculate scale based on container width and PDF page width
+  useEffect(() => {
+    if (!fit_to_width || !first_page_width || !content_container_ref.current) {
+      return;
+    }
+
+    const calculate_fit_scale = () => {
+      if (!content_container_ref.current || !first_page_width) return;
+
+      // Get container width (subtract some padding for page margins)
+      const container_width = content_container_ref.current.clientWidth;
+      const padding = 40; // Account for margins/padding around the page
+      const available_width = container_width - padding;
+
+      // Calculate scale to fit PDF width to available width
+      const new_scale = Math.max(0.1, Math.min(3.0, available_width / first_page_width));
+
+      // Only update if scale changed significantly (avoid infinite loops)
+      if (Math.abs(new_scale - scale) > 0.01) {
+        setScale(new_scale);
+      }
+    };
+
+    // Calculate initial scale
+    calculate_fit_scale();
+
+    // Set up ResizeObserver to recalculate on container resize
+    const resize_observer = new ResizeObserver(() => {
+      calculate_fit_scale();
+    });
+
+    resize_observer.observe(content_container_ref.current);
+
+    return () => {
+      resize_observer.disconnect();
+    };
+  }, [fit_to_width, first_page_width, scale]);
 
   // Previously logged global mouse clicks for debugging; removed for cleaner console.
 
@@ -762,6 +874,36 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     return { updatedRow, allData };
   };
 
+  // Handle popout to new tab
+  const handle_popout = useCallback(() => {
+    if (!files || files.length === 0) {
+      console.warn('PdfViewer: No files to popout');
+      return;
+    }
+
+    // Create popout context
+    const context: PopoutContext = {
+      files: files,
+      selected_file_id: current_file?.id || files[0].id,
+      annotations_map: {},
+      viewer_title: viewer_title,
+    };
+
+    // If custom handler is provided, use it
+    if (on_popout) {
+      on_popout(context);
+      return;
+    }
+
+    // Default behavior: save to sessionStorage and open new tab
+    try {
+      sessionStorage.setItem(POPOUT_STORAGE_KEY, JSON.stringify(context));
+      window.open(popout_route, '_blank');
+    } catch (err) {
+      console.error('PdfViewer: Failed to popout:', err);
+    }
+  }, [files, current_file, viewer_title, on_popout, popout_route]);
+
   // Handle save annotations to PDF
   const handle_save = async () => {
     if (annotations.length === 0) {
@@ -769,15 +911,17 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       return;
     }
 
-    if (!url) {
+    if (!effective_url) {
       console.error('PdfViewer: No PDF URL available for saving');
       return;
     }
 
     setSaving(true);
     try {
-      // Generate output filename
-      const original_filename = url.split('/').pop() || 'document.pdf';
+      // Generate output filename (use current_file.name in multi-file mode)
+      const original_filename = is_multi_file_mode && current_file
+        ? current_file.name
+        : (effective_url.split('/').pop() || 'document.pdf');
       const filename_without_ext = original_filename.replace(/\.pdf$/i, '');
       const output_filename = `${filename_without_ext}_annotated.pdf`;
 
@@ -785,7 +929,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       const { save_annotations_to_pdf, download_pdf } = await import('../../utils/pdf_saver');
 
       // Save annotations to PDF and get the modified bytes
-      const pdf_bytes = await save_annotations_to_pdf(url, annotations, output_filename, config_ref.current);
+      const pdf_bytes = await save_annotations_to_pdf(effective_url, annotations, output_filename, config_ref.current);
 
       // If callback is provided, call it (caller handles save/download)
       // Otherwise, download the modified PDF
@@ -826,8 +970,29 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     );
   }
 
-  // No document
+  // No document - in multi-file mode, show file manager for uploads
   if (!pdf_document) {
+    if (is_multi_file_mode) {
+      // Show file manager with empty state for upload
+      return (
+        <div className={cn('hazo-pdf-root cls_pdf_viewer', className)}>
+          <FileManager
+            files={files || []}
+            selected_file_id={null}
+            config={config_ref.current}
+            on_file_select={handle_file_select}
+            on_file_delete={on_file_delete}
+            on_upload={on_upload}
+            on_files_change={on_files_change}
+          />
+          <div className="cls_pdf_viewer_empty_state">
+            <div className="cls_pdf_viewer_empty_message">
+              Click the + button above to upload a file
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className={cn('cls_pdf_viewer', className)}>
         <div className="cls_pdf_viewer_no_document">No PDF document loaded</div>
@@ -854,6 +1019,19 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
   return (
     <div className={cn('hazo-pdf-root cls_pdf_viewer', className)}>
+      {/* File Manager for multi-file mode */}
+      {is_multi_file_mode && (
+        <FileManager
+          files={files}
+          selected_file_id={current_file?.id || null}
+          config={config_ref.current}
+          on_file_select={handle_file_select}
+          on_file_delete={on_file_delete}
+          on_upload={on_upload}
+          on_files_change={on_files_change}
+        />
+      )}
+
       {/* Toolbar */}
       {is_toolbar_enabled && (
       <div
@@ -1135,6 +1313,31 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           </div>
         )}
 
+        {/* Popout Button (shown in multi-file mode when enable_popout is true) */}
+        {is_multi_file_mode && enable_popout && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_popout}
+              className="cls_pdf_viewer_toolbar_button"
+              aria-label="Open in new tab"
+              title="Open in new tab"
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              <ExternalLink className="cls_pdf_viewer_toolbar_icon" size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Close Button (shown when on_close callback is provided) */}
         {on_close && (
           <div className="cls_pdf_viewer_toolbar_group">
@@ -1163,7 +1366,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
       {/* PDF Viewer Layout with Sidepanel */}
       <div className={cn('cls_pdf_viewer_content_wrapper', sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
-        <div 
+        <div
+          ref={content_container_ref}
           className={cn('cls_pdf_viewer_content', sidepanel_open && 'cls_pdf_viewer_content_with_sidepanel')}
           style={sidepanel_open ? { width: `calc(100% - ${sidepanel_width}px)` } : undefined}
         >

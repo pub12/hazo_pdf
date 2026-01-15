@@ -8,18 +8,28 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 // Export config types
 export type * from './config';
 
+// Import file manager types
+import type { FileItem, UploadResult, FileManagerDisplayMode, PopoutContext } from '../components/file_manager/types';
+
+// Re-export file manager types
+export type { FileItem, UploadResult, FileManagerDisplayMode, PopoutContext };
+
 /**
  * Props for the main PdfViewer component
  */
 export interface PdfViewerProps {
-  /** URL or path to the PDF file */
-  url: string;
+  /** URL or path to the PDF file (for single-file mode) */
+  url?: string;
   
   /** Optional class name for styling */
   className?: string;
   
   /** Initial zoom level (default: 1.0) */
   scale?: number;
+
+  /** Fit PDF to container width automatically (default: false) */
+  /** When enabled, scale is calculated to fit PDF width to available container width */
+  fit_to_width?: boolean;
   
   /** Callback when PDF is loaded */
   on_load?: (pdf: PDFDocumentProxy) => void;
@@ -98,6 +108,38 @@ export interface PdfViewerProps {
 
   /** Callback when close button is clicked (shows close button in toolbar when provided) */
   on_close?: () => void;
+
+  // --- Multi-file support props (mutually exclusive with url) ---
+
+  /** Array of files for multi-file mode (mutually exclusive with url) */
+  files?: FileItem[];
+
+  /** Callback when a file is selected in multi-file mode */
+  on_file_select?: (file: FileItem) => void;
+
+  /** Callback when a file is deleted in multi-file mode */
+  on_file_delete?: (file_id: string) => void;
+
+  /** Callback for file upload (caller handles actual storage) */
+  on_upload?: (file: File, converted_pdf?: Uint8Array) => Promise<UploadResult>;
+
+  /** Callback when files array changes */
+  on_files_change?: (files: FileItem[]) => void;
+
+  /** File manager display mode (default: 'embedded') */
+  file_manager_display_mode?: FileManagerDisplayMode;
+
+  /** Enable popout to new tab feature (default: false) */
+  enable_popout?: boolean;
+
+  /** Route path for popout viewer (default: '/pdf-viewer') */
+  popout_route?: string;
+
+  /** Custom popout handler (overrides default sessionStorage behavior) */
+  on_popout?: (context: PopoutContext) => void;
+
+  /** Title for the viewer (shown in dialog mode or popout) */
+  viewer_title?: string;
 }
 
 /**

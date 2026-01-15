@@ -9,8 +9,8 @@ import type { MetadataInput, MetadataDataItem } from "../../../src/types";
  * Lazy load PdfViewer component only on client side
  * PDF.js requires client-side rendering only
  */
-const PdfViewer = typeof window !== "undefined" 
-  ? lazy(() => import("hazo_pdf").then((mod) => ({ default: mod.PdfViewer })))
+const PdfViewer = typeof window !== "undefined"
+  ? lazy(() => import("@/app/lib/hazo_pdf").then((mod) => ({ default: mod.PdfViewer })))
   : () => null;
 
 /**

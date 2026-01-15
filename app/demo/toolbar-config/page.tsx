@@ -6,11 +6,11 @@
 "use client";
 
 import { Suspense, lazy, useState } from "react";
-import { TestAppLayout } from "@/app/test-app-layout";
+import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
-  import("hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
+  import("@/app/lib/hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
 );
 
 /**
@@ -131,10 +131,10 @@ export default function ToolbarConfigDemoPage() {
         </div>
 
         {/* Generated Code */}
-        <div className="cls_demo_code mb-4 p-4 bg-gray-100 rounded-lg overflow-auto">
-          <h3 className="font-semibold mb-2">Generated Code</h3>
-          <pre className="text-sm">{generate_code_snippet()}</pre>
-        </div>
+        <CodePreview
+          title="Generated Code"
+          code={generate_code_snippet()}
+        />
 
         {/* PDF Viewer with current configuration */}
         <div className="cls_demo_viewer flex-1 min-h-[400px] border rounded-lg overflow-hidden">

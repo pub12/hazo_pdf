@@ -204,4 +204,74 @@ export interface PdfViewerConfig {
     /** Label for metadata panel button (default: "Metadata") */
     toolbar_metadata_label: string;
   };
+
+  // File manager configuration
+  file_manager: {
+    /** Enable file manager features (requires files prop) */
+    file_manager_enabled: boolean;
+    /** Show file list above viewer */
+    show_file_list: boolean;
+    /** Allow file deletion from the list */
+    allow_delete: boolean;
+    /** Show popout/standalone button */
+    show_popout_button: boolean;
+    /** File list height in pixels */
+    file_list_height: number;
+    /** Selected file indicator color (hex format) */
+    selected_color: string;
+    /** File list background color (hex format) */
+    file_list_background_color: string;
+    /** File list border color (hex format) */
+    file_list_border_color: string;
+  };
+
+  // File upload configuration
+  file_upload: {
+    /** Enable file upload/dropzone */
+    upload_enabled: boolean;
+    /** Allowed file types (MIME types, comma-separated) */
+    allowed_types: string;
+    /** Maximum file size in bytes */
+    max_file_size: number;
+    /** Maximum number of files allowed */
+    max_files: number;
+    /** Show add file button in file list */
+    show_add_button: boolean;
+    /** Dropzone border color (hex format) */
+    dropzone_border_color: string;
+    /** Dropzone border color on hover/drag (hex format) */
+    dropzone_border_color_active: string;
+    /** Dropzone background color (hex format) */
+    dropzone_background_color: string;
+  };
+
+  // PDF conversion configuration
+  pdf_conversion: {
+    /** Enable automatic conversion of non-PDF files to PDF */
+    conversion_enabled: boolean;
+    /** Page size for converted PDFs */
+    page_size: 'letter' | 'a4' | 'legal';
+    /** Image quality for lossy compression (0.0 to 1.0) */
+    image_quality: number;
+    /** How images fit on the page */
+    image_fit: 'fit' | 'fill' | 'stretch';
+    /** Page margin in points (72 points = 1 inch) */
+    margin: number;
+  };
+
+  // File button configuration (compact trigger)
+  file_button: {
+    /** Icon size in pixels */
+    icon_size: number;
+    /** Icon color when no files (hex format) */
+    icon_color: string;
+    /** Icon color on hover (hex format) */
+    icon_color_hover: string;
+    /** Icon color when files are loaded (hex format) */
+    icon_color_with_files: string;
+    /** Badge background color (hex format) */
+    badge_background: string;
+    /** Badge text color (hex format) */
+    badge_text_color: string;
+  };
 }

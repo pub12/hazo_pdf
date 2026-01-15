@@ -114,4 +114,43 @@ export const default_config: PdfViewerConfig = {
     toolbar_saving_label: 'Saving...',
     toolbar_metadata_label: 'Metadata',
   },
+
+  file_manager: {
+    file_manager_enabled: false,
+    show_file_list: true,
+    allow_delete: true,
+    show_popout_button: true,
+    file_list_height: 60,
+    selected_color: '#3b82f6',
+    file_list_background_color: '#f9fafb',
+    file_list_border_color: '#e5e7eb',
+  },
+
+  file_upload: {
+    upload_enabled: true,
+    allowed_types: 'application/pdf,image/jpeg,image/png,image/gif,image/webp,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+    max_file_size: 10485760, // 10MB
+    max_files: 10,
+    show_add_button: true,
+    dropzone_border_color: '#d1d5db',
+    dropzone_border_color_active: '#3b82f6',
+    dropzone_background_color: '#f9fafb',
+  },
+
+  pdf_conversion: {
+    conversion_enabled: true,
+    page_size: 'letter',
+    image_quality: 0.85,
+    image_fit: 'fit',
+    margin: 36,
+  },
+
+  file_button: {
+    icon_size: 24,
+    icon_color: '#6b7280',
+    icon_color_hover: '#374151',
+    icon_color_with_files: '#3b82f6',
+    badge_background: '#3b82f6',
+    badge_text_color: '#ffffff',
+  },
 };

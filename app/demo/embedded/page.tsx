@@ -6,11 +6,11 @@
 "use client";
 
 import { Suspense, lazy } from "react";
-import { TestAppLayout } from "@/app/test-app-layout";
+import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
-  import("hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
+  import("@/app/lib/hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
 );
 
 /**
@@ -28,9 +28,9 @@ export default function EmbeddedDemoPage() {
         </div>
 
         {/* Code Example */}
-        <div className="cls_demo_code mb-4 p-4 bg-gray-100 rounded-lg overflow-auto">
-          <pre className="text-sm">
-{`import { PdfViewer } from 'hazo_pdf';
+        <CodePreview
+          title="Code Example"
+          code={`import { PdfViewer } from 'hazo_pdf';
 import 'hazo_pdf/styles.css'; // No preflight, safe for consuming apps
 
 function App() {
@@ -43,14 +43,14 @@ function App() {
     </div>
   );
 }`}
-          </pre>
-        </div>
+        />
 
         {/* PDF Viewer */}
         <div className="cls_demo_viewer flex-1 min-h-[500px] border rounded-lg overflow-hidden">
           <Suspense fallback={<div className="p-8 text-center">Loading PDF viewer...</div>}>
             <PdfViewer
               url="/api/test-app/files/sample.pdf"
+              fit_to_width={true}
               className="h-full w-full"
             />
           </Suspense>

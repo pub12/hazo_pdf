@@ -6,11 +6,11 @@
 "use client";
 
 import { Suspense, lazy, useState } from "react";
-import { TestAppLayout } from "@/app/test-app-layout";
+import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
-  import("hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
+  import("@/app/lib/hazo_pdf").then((mod) => ({ default: mod.PdfViewer }))
 );
 
 /**
@@ -56,9 +56,9 @@ export default function SidepanelDemoPage() {
         </div>
 
         {/* Code Example */}
-        <div className="cls_demo_code mb-4 p-4 bg-gray-100 rounded-lg overflow-auto">
-          <pre className="text-sm">
-{`import { PdfViewer } from 'hazo_pdf';
+        <CodePreview
+          title="Code Example"
+          code={`import { PdfViewer } from 'hazo_pdf';
 import 'hazo_pdf/styles.css';
 
 function App() {
@@ -81,8 +81,7 @@ function App() {
     </div>
   );
 }`}
-          </pre>
-        </div>
+        />
 
         {/* Split View */}
         <div className="cls_demo_split_view flex-1 flex min-h-[500px] border rounded-lg overflow-hidden">

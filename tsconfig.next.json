@@ -9,7 +9,10 @@
     "allowJs": true,
     "noEmit": true,
     "incremental": true,
-    "tsBuildInfoFile": ".next/cache/.tsbuildinfo"
+    "tsBuildInfoFile": ".next/cache/.tsbuildinfo",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "app/**/*",
