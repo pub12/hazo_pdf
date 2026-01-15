@@ -413,7 +413,7 @@ export async function convert_text_to_pdf(
 
 /**
  * Convert Excel spreadsheet to PDF
- * Supports horizontal pagination for wide tables
+ * Fits all columns on one page by scaling down (zooming out) if needed
  * Includes row numbers and column letters like Excel
  * @param excel_bytes - Raw Excel data as Uint8Array
  * @param filename - Original filename
@@ -447,7 +447,7 @@ export async function convert_excel_to_pdf(
     const font = await pdf_doc.embedFont(StandardFonts.Helvetica);
     const bold_font = await pdf_doc.embedFont(StandardFonts.HelveticaBold);
 
-    // Layout constants
+    // Layout constants (base values - will be scaled per page)
     const margin = opts.margin;
     const font_size = opts.font_size;
     const small_font_size = font_size - 2;
@@ -455,8 +455,6 @@ export async function convert_excel_to_pdf(
     const line_height = font_size * opts.line_height;
     const cell_padding = 5;
     const row_num_width = 35; // Width for row number column
-    const title_height = title_font_size * 2;
-    const col_label_height = small_font_size + 4; // Height for column letter row
     const available_width = page_size.width - (margin * 2) - row_num_width;
     const available_height = page_size.height - (margin * 2);
 
@@ -466,10 +464,8 @@ export async function convert_excel_to_pdf(
       sheet_idx: number;
       start_row: number;
       end_row: number;
-      col_indices: number[];
-      col_widths: number[];
-      h_page_num: number;      // Horizontal page number (1-based) within this row range
-      total_h_pages: number;   // Total horizontal pages for this sheet
+      col_widths: number[];   // Scaled column widths
+      scale: number;          // Scale factor applied to fit columns on page
     }
     const all_pages: PageInfo[] = [];
 
@@ -495,35 +491,33 @@ export async function convert_excel_to_pdf(
       // Calculate optimal column widths
       const col_widths = calculate_optimal_column_widths(data, font, font_size, num_cols);
 
-      // Group columns into horizontal pages
-      const h_page_groups = group_columns_for_pages(col_widths, available_width);
-      const total_h_pages = h_page_groups.length;
+      // Calculate scale factor to fit all columns on one page
+      const total_width = col_widths.reduce((sum, w) => sum + w, 0);
+      const scale = total_width > available_width ? available_width / total_width : 1;
+      const scaled_col_widths = col_widths.map(w => w * scale);
 
-      // Calculate rows per page
-      const row_height = line_height + cell_padding * 2;
-      const content_height = available_height - title_height - col_label_height - row_height;
+      // Calculate rows per page using scaled dimensions
+      const scaled_line_height = line_height * scale;
+      const scaled_cell_padding = cell_padding * scale;
+      const scaled_title_height = title_font_size * scale * 2;
+      const scaled_col_label_height = (small_font_size * scale) + 4;
+      const row_height = scaled_line_height + scaled_cell_padding * 2;
+      const content_height = available_height - scaled_title_height - scaled_col_label_height - row_height;
       const rows_per_page = Math.floor(content_height / row_height);
 
-      // Generate pages: iterate vertical pages first, then horizontal
-      // This way pages flow: all columns of rows 1-20, then all columns of rows 21-40, etc.
+      // Generate pages: one page per vertical section (all columns fit on each page)
       let current_row = 1; // Start after header
       while (current_row < data.length) {
         const end_row = Math.min(current_row + rows_per_page, data.length);
 
-        // For each vertical page section, add all horizontal pages
-        for (let h_idx = 0; h_idx < h_page_groups.length; h_idx++) {
-          const col_group = h_page_groups[h_idx];
-          all_pages.push({
-            sheet_name,
-            sheet_idx,
-            start_row: current_row,
-            end_row,
-            col_indices: col_group.indices,
-            col_widths: col_group.widths,
-            h_page_num: h_idx + 1,
-            total_h_pages,
-          });
-        }
+        all_pages.push({
+          sheet_name,
+          sheet_idx,
+          start_row: current_row,
+          end_row,
+          col_widths: scaled_col_widths,
+          scale,
+        });
 
         current_row = end_row;
       }
@@ -539,78 +533,84 @@ export async function convert_excel_to_pdf(
       }) as string[][];
 
       const page = pdf_doc.addPage([page_size.width, page_size.height]);
-      const row_height = line_height + cell_padding * 2;
+
+      // Use scaled dimensions
+      const scale = page_info.scale;
+      const scaled_font_size = font_size * scale;
+      const scaled_small_font_size = small_font_size * scale;
+      const scaled_title_font_size = title_font_size * scale;
+      const scaled_line_height = line_height * scale;
+      const scaled_cell_padding = cell_padding * scale;
+      const scaled_row_num_width = row_num_width * scale;
+      const scaled_title_height = scaled_title_font_size * 2;
+      const scaled_col_label_height = scaled_small_font_size + 4;
+      const row_height = scaled_line_height + scaled_cell_padding * 2;
 
       let y = page_size.height - margin;
 
-      // Draw title with sheet name and page number (only if columns overflow)
+      // Draw title with sheet name (only if multiple sheets)
       const show_sheet_name = workbook.SheetNames.length > 1;
-      const show_page_num = page_info.total_h_pages > 1; // Only show page numbers when columns overflow
-      const title_parts: string[] = [];
-      if (show_sheet_name) title_parts.push(`Sheet: ${page_info.sheet_name}`);
-      if (show_page_num) title_parts.push(`Page ${page_info.h_page_num} of ${page_info.total_h_pages}`);
-
-      if (title_parts.length > 0) {
-        page.drawText(title_parts.join('  |  '), {
+      if (show_sheet_name) {
+        page.drawText(`Sheet: ${page_info.sheet_name}`, {
           x: margin,
-          y: y - title_font_size,
-          size: title_font_size,
+          y: y - scaled_title_font_size,
+          size: scaled_title_font_size,
           font: bold_font,
           color: rgb(0.3, 0.3, 0.3),
         });
-        y -= title_height;
+        y -= scaled_title_height;
       }
 
       // Calculate table width for this page
       const table_width = page_info.col_widths.reduce((sum, w) => sum + w, 0);
+      const num_cols = page_info.col_widths.length;
 
       // Draw column letter row (A, B, C...)
-      let x = margin + row_num_width;
+      let x = margin + scaled_row_num_width;
       page.drawRectangle({
         x: margin,
-        y: y - col_label_height,
-        width: row_num_width + table_width,
-        height: col_label_height,
+        y: y - scaled_col_label_height,
+        width: scaled_row_num_width + table_width,
+        height: scaled_col_label_height,
         color: rgb(0.85, 0.85, 0.85),
       });
 
       // Empty cell for row number column header
       page.drawRectangle({
         x: margin,
-        y: y - col_label_height,
-        width: row_num_width,
-        height: col_label_height,
+        y: y - scaled_col_label_height,
+        width: scaled_row_num_width,
+        height: scaled_col_label_height,
         borderColor: rgb(0.6, 0.6, 0.6),
         borderWidth: 0.5,
       });
 
-      for (let i = 0; i < page_info.col_indices.length; i++) {
-        const col_idx = page_info.col_indices[i];
-        const col_width = page_info.col_widths[i];
+      for (let col_idx = 0; col_idx < num_cols; col_idx++) {
+        const col_width = page_info.col_widths[col_idx];
         const col_letter = column_index_to_letter(col_idx);
 
         // Center the column letter
-        const letter_width = font.widthOfTextAtSize(col_letter, small_font_size);
+        const letter_width = font.widthOfTextAtSize(col_letter, scaled_small_font_size);
         page.drawText(col_letter, {
           x: x + (col_width - letter_width) / 2,
-          y: y - col_label_height + 3,
-          size: small_font_size,
+          y: y - scaled_col_label_height + 3,
+          size: scaled_small_font_size,
           font: bold_font,
           color: rgb(0.3, 0.3, 0.3),
         });
 
         page.drawRectangle({
           x: x,
-          y: y - col_label_height,
+          y: y - scaled_col_label_height,
           width: col_width,
-          height: col_label_height,
+          height: scaled_col_label_height,
           borderColor: rgb(0.6, 0.6, 0.6),
           borderWidth: 0.5,
         });
 
         x += col_width;
       }
-      y -= col_label_height;
+      y -= scaled_col_label_height;
 
       // Draw header row (row 1 from data)
       const header_row = data[0] || [];
@@ -620,33 +620,33 @@ export async function convert_excel_to_pdf(
       page.drawRectangle({
         x: margin,
         y: y - row_height,
-        width: row_num_width,
+        width: scaled_row_num_width,
         height: row_height,
         color: rgb(0.85, 0.85, 0.85),
       });
       const row_1_text = '1';
-      const row_1_width = font.widthOfTextAtSize(row_1_text, small_font_size);
+      const row_1_width = font.widthOfTextAtSize(row_1_text, scaled_small_font_size);
       page.drawText(row_1_text, {
-        x: margin + (row_num_width - row_1_width) / 2,
-        y: y - row_height + cell_padding + 2,
-        size: small_font_size,
+        x: margin + (scaled_row_num_width - row_1_width) / 2,
+        y: y - row_height + scaled_cell_padding + 2,
+        size: scaled_small_font_size,
         font: bold_font,
         color: rgb(0.3, 0.3, 0.3),
       });
       page.drawRectangle({
         x: margin,
         y: y - row_height,
-        width: row_num_width,
+        width: scaled_row_num_width,
         height: row_height,
         borderColor: rgb(0.6, 0.6, 0.6),
         borderWidth: 0.5,
       });
 
-      x = margin + row_num_width;
+      x = margin + scaled_row_num_width;
 
       // Draw header background
       page.drawRectangle({
-        x: margin + row_num_width,
+        x: margin + scaled_row_num_width,
         y: y - row_height,
         width: table_width,
         height: row_height,
@@ -654,16 +654,15 @@ export async function convert_excel_to_pdf(
       });
 
       // Draw header cells
-      for (let i = 0; i < page_info.col_indices.length; i++) {
-        const col_idx = page_info.col_indices[i];
-        const col_width = page_info.col_widths[i];
+      for (let col_idx = 0; col_idx < num_cols; col_idx++) {
+        const col_width = page_info.col_widths[col_idx];
         const cell_value = String(header_row[col_idx] || '');
-        const truncated = truncate_text(cell_value, font, font_size, col_width - cell_padding * 2);
+        const truncated = truncate_text(cell_value, font, scaled_font_size, col_width - scaled_cell_padding * 2);
 
         page.drawText(truncated, {
-          x: x + cell_padding,
-          y: y - row_height + cell_padding + 2,
-          size: font_size,
+          x: x + scaled_cell_padding,
+          y: y - row_height + scaled_cell_padding + 2,
+          size: scaled_font_size,
           font: bold_font,
           color: rgb(0, 0, 0),
         });
@@ -690,37 +689,37 @@ export async function convert_excel_to_pdf(
         // Row number cell
         const row_num = row_idx + 1; // Excel rows are 1-indexed
         const row_num_text = String(row_num);
-        const row_num_text_width = font.widthOfTextAtSize(row_num_text, small_font_size);
+        const row_num_text_width = font.widthOfTextAtSize(row_num_text, scaled_small_font_size);
 
         page.drawRectangle({
           x: margin,
           y: y - row_height,
-          width: row_num_width,
+          width: scaled_row_num_width,
           height: row_height,
           color: rgb(0.92, 0.92, 0.92),
         });
         page.drawText(row_num_text, {
-          x: margin + (row_num_width - row_num_text_width) / 2,
-          y: y - row_height + cell_padding + 2,
-          size: small_font_size,
+          x: margin + (scaled_row_num_width - row_num_text_width) / 2,
+          y: y - row_height + scaled_cell_padding + 2,
+          size: scaled_small_font_size,
           font: font,
           color: rgb(0.4, 0.4, 0.4),
         });
         page.drawRectangle({
           x: margin,
           y: y - row_height,
-          width: row_num_width,
+          width: scaled_row_num_width,
           height: row_height,
           borderColor: rgb(0.7, 0.7, 0.7),
           borderWidth: 0.5,
         });
 
-        x = margin + row_num_width;
+        x = margin + scaled_row_num_width;
 
         // Alternate row background
         if ((row_idx - page_info.start_row) % 2 === 1) {
           page.drawRectangle({
-            x: margin + row_num_width,
+            x: margin + scaled_row_num_width,
             y: y - row_height,
             width: table_width,
             height: row_height,
@@ -728,16 +727,15 @@ export async function convert_excel_to_pdf(
           });
         }
 
-        for (let i = 0; i < page_info.col_indices.length; i++) {
-          const col_idx = page_info.col_indices[i];
-          const col_width = page_info.col_widths[i];
+        for (let col_idx = 0; col_idx < num_cols; col_idx++) {
+          const col_width = page_info.col_widths[col_idx];
           const cell_value = String(row[col_idx] || '');
-          const truncated = truncate_text(cell_value, font, font_size, col_width - cell_padding * 2);
+          const truncated = truncate_text(cell_value, font, scaled_font_size, col_width - scaled_cell_padding * 2);
 
           page.drawText(truncated, {
-            x: x + cell_padding,
-            y: y - row_height + cell_padding + 2,
-            size: font_size,
+            x: x + scaled_cell_padding,
+            y: y - row_height + scaled_cell_padding + 2,
+            size: scaled_font_size,
             font: font,
             color: rgb(0, 0, 0),
           });
@@ -846,65 +844,6 @@ function calculate_optimal_column_widths(
   }
 
   return col_widths;
-}
-
-/**
- * Group columns into horizontal pages based on available width
- * First column is repeated on all subsequent pages as an identifier
- * @param col_widths - Array of column widths
- * @param available_width - Available page width
- * @returns Array of column groups with indices and widths
- */
-function group_columns_for_pages(
-  col_widths: number[],
-  available_width: number
-): Array<{ indices: number[]; widths: number[] }> {
-  if (col_widths.length === 0) {
-    return [{ indices: [], widths: [] }];
-  }
-
-  const groups: Array<{ indices: number[]; widths: number[] }> = [];
-  const first_col_width = col_widths[0];
-
-  // Check if all columns fit on one page
-  const total_width = col_widths.reduce((sum, w) => sum + w, 0);
-  if (total_width <= available_width) {
-    return [{
-      indices: col_widths.map((_, i) => i),
-      widths: col_widths,
-    }];
-  }
-
-  // First page: start with column 0 and add as many as fit
-  let current_group: { indices: number[]; widths: number[] } = { indices: [], widths: [] };
-  let current_width = 0;
-
-  for (let col = 0; col < col_widths.length; col++) {
-    if (current_width + col_widths[col] <= available_width) {
-      current_group.indices.push(col);
-      current_group.widths.push(col_widths[col]);
-      current_width += col_widths[col];
-    } else {
-      // Save current group and start new one
-      if (current_group.indices.length > 0) {
-        groups.push(current_group);
-      }
-
-      // For subsequent pages, always start with first column (identifier)
-      current_group = {
-        indices: [0, col],
-        widths: [first_col_width, col_widths[col]],
-      };
-      current_width = first_col_width + col_widths[col];
-    }
-  }
-
-  // Don't forget the last group
-  if (current_group.indices.length > 0) {
-    groups.push(current_group);
-  }
-
-  return groups;
 }
 
 /**
