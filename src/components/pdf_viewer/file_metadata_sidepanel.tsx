@@ -227,21 +227,25 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
                         )}
                       </button>
 
-                      {/* Table content */}
+                      {/* Table content - two column layout per row */}
                       {is_expanded && (
                         <div className="cls_file_metadata_table_content">
                           {rows.map((row, row_index) => (
                             <div key={row_index} className="cls_file_metadata_table_row">
-                              {Object.entries(row).map(([field_name, field_value]) => (
-                                <div key={field_name} className="cls_file_metadata_table_cell">
-                                  <span className="cls_file_metadata_cell_label">
-                                    {format_field_name(field_name)}
-                                  </span>
-                                  <span className="cls_file_metadata_cell_value">
-                                    {field_value}
-                                  </span>
-                                </div>
-                              ))}
+                              <table className="cls_file_metadata_row_table">
+                                <tbody>
+                                  {Object.entries(row).map(([field_name, field_value]) => (
+                                    <tr key={field_name} className="cls_file_metadata_row_tr">
+                                      <td className="cls_file_metadata_row_label">
+                                        {format_field_name(field_name)}
+                                      </td>
+                                      <td className="cls_file_metadata_row_value">
+                                        {field_value}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           ))}
                         </div>

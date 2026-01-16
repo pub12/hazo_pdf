@@ -102,6 +102,43 @@
   @apply px-2 text-sm font-medium;
 }
 
+/* Metadata Expand Button (floating at top of PDF content) */
+.cls_pdf_viewer_metadata_expand_btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: white;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cls_pdf_viewer_metadata_expand_btn:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db !important;
+  color: #374151;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.cls_pdf_viewer_metadata_expand_btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.cls_pdf_viewer_metadata_expand_text {
+  white-space: nowrap;
+}
+
 /* PDF Viewer Layout */
 .cls_pdf_viewer_layout {
   @apply w-full h-full;
@@ -571,6 +608,35 @@
   @apply bg-gray-50;
 }
 
+/* Two-column table layout for each row */
+.cls_file_metadata_row_table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cls_file_metadata_row_tr {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cls_file_metadata_row_tr:last-child {
+  border-bottom: none;
+}
+
+.cls_file_metadata_row_label {
+  @apply text-xs font-medium text-gray-500 py-1.5 pr-3;
+  width: 35%;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.cls_file_metadata_row_value {
+  @apply text-sm text-gray-900 py-1.5;
+  width: 65%;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+/* Legacy cell styles (kept for backwards compatibility) */
 .cls_file_metadata_table_cell {
   @apply flex flex-col gap-0.5 mb-2;
 }

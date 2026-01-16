@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight, ZoomIn, ZoomOut, RotateCcw, Square, Type, ExternalLink } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, Square, Type, ExternalLink } from 'lucide-react';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
@@ -1430,8 +1430,32 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       {(() => {
         const any_sidepanel_open = sidepanel_open || file_metadata_sidepanel_open;
         const total_sidepanel_width = (sidepanel_open ? sidepanel_width : 0) + (file_metadata_sidepanel_open ? file_metadata_sidepanel_width : 0);
+        // Check if any sidepanel is available (has content)
+        const has_metadata_sidepanel = sidepanel_metadata_enabled && metadata_input;
+        const has_file_metadata_sidepanel = file_metadata && file_metadata.length > 0;
+        const any_sidepanel_available = has_metadata_sidepanel || has_file_metadata_sidepanel;
         return (
       <div className={cn('cls_pdf_viewer_content_wrapper', any_sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
+        {/* Floating metadata expand button at top-right of PDF content */}
+        {any_sidepanel_available && !any_sidepanel_open && (
+          <button
+            type="button"
+            onClick={() => {
+              // Open the first available sidepanel
+              if (has_file_metadata_sidepanel) {
+                handle_file_metadata_sidepanel_toggle();
+              } else if (has_metadata_sidepanel) {
+                handle_sidepanel_toggle();
+              }
+            }}
+            className="cls_pdf_viewer_metadata_expand_btn"
+            aria-label="Open metadata panel"
+            title="Open metadata panel"
+          >
+            <PanelRightOpen size={18} />
+            <span className="cls_pdf_viewer_metadata_expand_text">Metadata</span>
+          </button>
+        )}
         <div
           ref={content_container_ref}
           className={cn('cls_pdf_viewer_content', any_sidepanel_open && 'cls_pdf_viewer_content_with_sidepanel')}
