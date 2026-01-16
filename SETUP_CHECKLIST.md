@@ -25,6 +25,22 @@ Or with yarn:
 yarn add hazo_pdf
 ```
 
+#### Optional: Install hazo_logs for Logging
+
+For structured logging and debugging, optionally install hazo_logs:
+
+```bash
+npm install hazo_logs
+```
+
+Or with yarn:
+
+```bash
+yarn add hazo_logs
+```
+
+Note: hazo_logs is an optional peer dependency. If not installed, hazo_pdf will use console-based logging.
+
 ### 2. Import Styles
 
 Choose the appropriate CSS file based on your application setup:
@@ -219,6 +235,81 @@ Important notes about the coordinate system:
 - [ ] Check colors are in valid hex format (e.g., "#FF0000")
 
 ## Post-Installation Configuration
+
+### Enable Logging (Optional)
+
+To enable structured logging with hazo_logs:
+
+#### 1. Create Logger Configuration File
+
+```bash
+mkdir -p config
+touch config/hazo_logs_config.ini
+```
+
+Example configuration:
+
+```ini
+[logging]
+log_level = DEBUG
+log_format = json
+output_file = logs/hazo_pdf.log
+
+[console]
+enabled = true
+log_level = INFO
+```
+
+#### 2. Initialize Logger in Your App
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import { create_logger } from 'hazo_logs';
+import 'hazo_pdf/styles.css';
+
+// Create logger instance
+const logger = create_logger('my_app', 'config/hazo_logs_config.ini');
+
+function App() {
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/document.pdf"
+        logger={logger}
+        on_load={(pdf) => console.log('PDF loaded:', pdf.numPages, 'pages')}
+      />
+    </div>
+  );
+}
+```
+
+#### 3. Alternative: Custom Logger
+
+You can also provide a custom logger that matches the Logger interface:
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+
+const custom_logger = {
+  info: (message, data) => console.log('[INFO]', message, data),
+  debug: (message, data) => console.debug('[DEBUG]', message, data),
+  warn: (message, data) => console.warn('[WARN]', message, data),
+  error: (message, data) => console.error('[ERROR]', message, data),
+};
+
+<PdfViewer
+  url="/document.pdf"
+  logger={custom_logger}
+/>
+```
+
+**What Gets Logged:**
+- PDF conversion operations (image, text, Excel to PDF)
+- PDF loading and rendering events
+- Annotation operations (create, update, delete)
+- Error conditions and warnings
+
+**Note:** If no logger is provided, hazo_pdf automatically falls back to console logging with `[hazo_pdf]` prefix.
 
 ### Enable Metadata Sidepanel (Optional)
 

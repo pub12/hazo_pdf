@@ -45,6 +45,13 @@ npm run lint
 - **utils/config_loader.ts**: Loads INI config files via hazo_config package
 - Props can override config file values; config file path passed via `config_file` prop
 
+### Logging System
+- **utils/logger.ts**: Logger interface and utilities for hazo_logs integration
+- **Logger interface**: Compatible with hazo_logs package (info, debug, warn, error methods)
+- **Fallback logging**: Uses console with `[hazo_pdf]` prefix when no logger provided
+- **Global logger**: Can be set via `set_logger()` utility or `logger` prop on PdfViewer
+- **Comprehensive logging**: PDF conversion operations in `pdf_converter.ts` emit structured logs
+
 ### Coordinate System
 - PDF coordinates (origin bottom-left) vs screen coordinates (origin top-left)
 - **utils/coordinate_mapper.ts**: Converts between coordinate systems using pdfjs viewport
@@ -85,5 +92,7 @@ npm run lint
 
 - `src/index.ts` - Main entry point, exports public API
 - `src/types/index.ts` - TypeScript type definitions (PdfAnnotation, PdfViewerProps, etc.)
+- `src/utils/logger.ts` - Logger interface and utilities (set_logger, get_logger)
 - `tsup.config.ts` - Build configuration
 - `config/hazo_pdf_config.ini` - Example configuration file with all available options
+- `config/hazo_logs_config.ini` - Logger configuration for test app

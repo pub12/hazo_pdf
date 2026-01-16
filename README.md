@@ -20,6 +20,16 @@ A React component library for viewing and annotating PDF documents with support 
 npm install hazo_pdf
 ```
 
+### Optional Dependencies
+
+**hazo_logs** (optional): For structured logging and debugging
+
+```bash
+npm install hazo_logs
+```
+
+The `hazo_logs` package is an optional peer dependency. If not installed, hazo_pdf will use console-based logging as a fallback.
+
 ## CSS Import Options
 
 The library provides two CSS files to choose from:
@@ -69,7 +79,7 @@ import 'hazo_pdf/styles.css';
 
 function App() {
   return (
-    <PdfViewer 
+    <PdfViewer
       url="/path/to/document.pdf"
     />
   );
@@ -77,6 +87,27 @@ function App() {
 ```
 
 That's it! The PDF viewer will load and display your document with default styling and pan mode enabled.
+
+### With Logging (Optional)
+
+For debugging and monitoring, you can integrate hazo_logs:
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import { create_logger } from 'hazo_logs';
+import 'hazo_pdf/styles.css';
+
+const logger = create_logger('my_app', 'config/hazo_logs_config.ini');
+
+function App() {
+  return (
+    <PdfViewer
+      url="/path/to/document.pdf"
+      logger={logger}
+    />
+  );
+}
+```
 
 ---
 
@@ -632,6 +663,7 @@ You can override any or all of these on a per-highlight basis.
 | `scale` | `number` | `1.0` | Initial zoom level. Values > 1.0 zoom in, < 1.0 zoom out. |
 | `background_color` | `string` | `"#2d2d2d"` | Background color for areas outside PDF pages (hex format: `#RRGGBB`). Overrides config file value. |
 | `config_file` | `string` | `undefined` | Path to configuration INI file (e.g., `"config/hazo_pdf_config.ini"`). If not provided, uses default configuration. |
+| `logger` | `Logger` | `undefined` | Logger instance from hazo_logs or custom logger matching the Logger interface. If not provided, falls back to console-based logging. Useful for debugging and monitoring PDF operations. |
 
 ##### Event Callbacks
 
@@ -805,6 +837,73 @@ interface HighlightOptions {
   background_opacity?: number; // 0-1 (e.g., 0.4)
 }
 ```
+
+### Logger Interface
+
+Interface for custom logging integration. Compatible with hazo_logs and custom logger implementations.
+
+```typescript
+interface Logger {
+  info: (message: string, data?: Record<string, unknown>) => void;
+  debug: (message: string, data?: Record<string, unknown>) => void;
+  warn: (message: string, data?: Record<string, unknown>) => void;
+  error: (message: string, data?: Record<string, unknown>) => void;
+}
+```
+
+**Usage with hazo_logs:**
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import { create_logger } from 'hazo_logs';
+
+const logger = create_logger('my_app', 'config/hazo_logs_config.ini');
+
+<PdfViewer
+  url="/document.pdf"
+  logger={logger}
+/>
+```
+
+**Usage with custom logger:**
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+
+const custom_logger = {
+  info: (message, data) => console.log('[INFO]', message, data),
+  debug: (message, data) => console.debug('[DEBUG]', message, data),
+  warn: (message, data) => console.warn('[WARN]', message, data),
+  error: (message, data) => console.error('[ERROR]', message, data),
+};
+
+<PdfViewer
+  url="/document.pdf"
+  logger={custom_logger}
+/>
+```
+
+**Logger Utilities:**
+
+```typescript
+import { set_logger, get_logger } from 'hazo_pdf';
+
+// Set logger globally for all hazo_pdf components
+set_logger(my_logger);
+
+// Get current logger instance
+const current_logger = get_logger();
+```
+
+**Logging Output:**
+
+The library logs operations such as:
+- PDF conversion events (image to PDF, text to PDF, Excel to PDF)
+- PDF loading and rendering
+- Annotation operations
+- Error conditions
+
+If no logger is provided, hazo_pdf falls back to console-based logging with a `[hazo_pdf]` prefix.
 
 ### PDFDocumentProxy
 

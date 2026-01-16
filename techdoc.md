@@ -29,6 +29,8 @@ hazo_pdf/
 │   │   ├── annotation_utils.ts             # Annotation calculations
 │   │   ├── coordinate_mapper.ts            # PDF ↔ Screen coordinate conversion
 │   │   ├── xfdf_generator.ts               # FDF/XFDF export functionality
+│   │   ├── pdf_converter.ts                # PDF conversion utilities (with logging)
+│   │   ├── logger.ts                       # Logger interface and utilities
 │   │   ├── cn.ts                           # Class name utility
 │   │   └── index.ts                        # Utility exports
 │   ├── types/
@@ -41,6 +43,9 @@ hazo_pdf/
 ├── .storybook/
 │   ├── main.ts                             # Storybook configuration
 │   └── preview.ts                          # Storybook preview config
+├── config/
+│   ├── hazo_pdf_config.ini                 # PDF viewer configuration
+│   └── hazo_logs_config.ini                # Logger configuration (test app)
 ├── test/
 │   └── pdfs/                               # Sample PDF files for testing
 ├── dist/                                   # Build output (generated)
@@ -49,7 +54,8 @@ hazo_pdf/
 ├── tailwind.config.cjs                     # Tailwind CSS configuration
 ├── postcss.config.cjs                      # PostCSS configuration
 ├── package.json                            # NPM package configuration
-└── README.md                               # User documentation
+├── README.md                               # User documentation
+└── CHANGE_LOG.md                           # Version history and changes
 ```
 
 ### Build System
@@ -79,6 +85,7 @@ hazo_pdf/
 - `url` (string, required): URL or path to PDF file
 - `className` (string, optional): Additional CSS classes
 - `scale` (number, optional): Initial zoom level (default: 1.0)
+- `logger` (Logger, optional): Logger instance from hazo_logs or custom logger
 - `on_load` (function, optional): Callback when PDF loads
 - `on_error` (function, optional): Error handler
 - `annotations` (array, optional): Existing annotations to display
@@ -185,6 +192,52 @@ Interface for bookmark/outline data structure
 Interface for coordinate mapping utilities:
 - `to_pdf` (function): Convert screen coordinates to PDF coordinates
 - `to_screen` (function): Convert PDF coordinates to screen coordinates
+
+## Logging System
+
+### Logger Interface
+**File**: `src/utils/logger.ts`
+
+**Purpose**: Provides a unified logging interface compatible with hazo_logs or custom loggers
+
+**Interface**:
+```typescript
+interface Logger {
+  info: (message: string, data?: Record<string, unknown>) => void;
+  debug: (message: string, data?: Record<string, unknown>) => void;
+  warn: (message: string, data?: Record<string, unknown>) => void;
+  error: (message: string, data?: Record<string, unknown>) => void;
+}
+```
+
+**Functions**:
+- `set_logger(logger: Logger | undefined)`: Set global logger instance (undefined resets to console)
+- `get_logger()`: Get current logger instance
+
+**Fallback Behavior**:
+- When no logger is provided, uses console-based logging with `[hazo_pdf]` prefix
+- All log methods accept optional data object for structured logging
+
+**Integration with PdfViewer**:
+- `logger` prop accepts Logger instance
+- Logger is set globally via `set_logger()` in a `useEffect` hook
+- PDF conversion operations in `pdf_converter.ts` use the logger for operation tracking
+
+**Usage with hazo_logs**:
+```typescript
+import { create_logger } from 'hazo_logs';
+import { PdfViewer } from 'hazo_pdf';
+
+const logger = create_logger('my_app', 'config/hazo_logs_config.ini');
+
+<PdfViewer url="/doc.pdf" logger={logger} />
+```
+
+**Logged Operations**:
+- PDF conversion (image, text, Excel to PDF)
+- PDF loading and rendering
+- Annotation operations
+- Error conditions
 
 ## Utilities
 
