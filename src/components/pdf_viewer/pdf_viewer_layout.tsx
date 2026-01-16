@@ -26,6 +26,10 @@ export interface PdfViewerLayoutProps {
   background_color?: string;
   config: PdfViewerConfig | null;
   className?: string;
+  /** Page rotation state - Map of page_index to rotation degrees (0, 90, 180, 270) */
+  page_rotations?: Map<number, number>;
+  /** Callback when current visible page changes */
+  on_visible_page_change?: (page_index: number) => void;
 }
 
 /**
@@ -44,6 +48,8 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   background_color = '#2d2d2d',
   config = null,
   className = '',
+  page_rotations = new Map(),
+  on_visible_page_change,
 }) => {
   const [pages, setPages] = useState<PDFPageProxy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,10 +58,49 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   >(new Map());
   const container_ref = useRef<HTMLDivElement>(null);
   const has_centered_ref = useRef(false);
-  
+  const page_refs = useRef<Map<number, HTMLDivElement>>(new Map());
+
   // Pan/scroll state
   const [is_panning, setIsPanning] = useState(false);
   const pan_start_ref = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  // Track visible page using IntersectionObserver
+  useEffect(() => {
+    if (!container_ref.current || pages.length === 0 || !on_visible_page_change) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the most visible page (highest intersection ratio)
+        let max_ratio = 0;
+        let most_visible_page = 0;
+
+        entries.forEach((entry) => {
+          const page_index = parseInt(entry.target.getAttribute('data-page-index') || '0', 10);
+          if (entry.intersectionRatio > max_ratio) {
+            max_ratio = entry.intersectionRatio;
+            most_visible_page = page_index;
+          }
+        });
+
+        if (max_ratio > 0) {
+          on_visible_page_change(most_visible_page);
+        }
+      },
+      {
+        root: container_ref.current,
+        threshold: [0, 0.25, 0.5, 0.75, 1.0],
+      }
+    );
+
+    // Observe all page wrappers
+    page_refs.current.forEach((element) => {
+      observer.observe(element);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [pages.length, on_visible_page_change]);
 
   // Load all pages from the PDF document
   useEffect(() => {
@@ -278,10 +323,19 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
           const page_annotations = annotations?.filter(
             (ann) => ann.page_index === index
           ) || [];
+          const page_rotation = page_rotations.get(index) || 0;
 
           return (
             <div
               key={index}
+              ref={(el) => {
+                if (el) {
+                  page_refs.current.set(index, el);
+                } else {
+                  page_refs.current.delete(index);
+                }
+              }}
+              data-page-index={index}
               className="cls_pdf_viewer_page_wrapper"
               style={{
                 position: 'relative',
@@ -300,6 +354,7 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
                 page={page}
                 page_index={index}
                 scale={scale}
+                rotation={page_rotation}
                 config={config}
                 on_coordinate_mapper_ready={(mapper, dimensions) =>
                   handle_coordinate_mapper_ready(index, mapper, dimensions)

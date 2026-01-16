@@ -8,16 +8,18 @@ import type { PDFPageProxy } from 'pdfjs-dist';
 import type { CoordinateMapper } from '../types';
 
 /**
- * Create a coordinate mapper for a specific page and scale
+ * Create a coordinate mapper for a specific page, scale, and rotation
  * @param page - PDF page proxy
  * @param scale - Zoom/scale factor
+ * @param rotation - Rotation in degrees (0, 90, 180, 270)
  * @returns CoordinateMapper with to_pdf and to_screen methods
  */
 export function create_coordinate_mapper(
   page: PDFPageProxy,
-  scale: number
+  scale: number,
+  rotation: number = 0
 ): CoordinateMapper {
-  const viewport = page.getViewport({ scale });
+  const viewport = page.getViewport({ scale, rotation });
 
   return {
     /**
@@ -47,16 +49,18 @@ export function create_coordinate_mapper(
 }
 
 /**
- * Get viewport dimensions for a page at a specific scale
+ * Get viewport dimensions for a page at a specific scale and rotation
  * @param page - PDF page proxy
  * @param scale - Zoom/scale factor
+ * @param rotation - Rotation in degrees (0, 90, 180, 270)
  * @returns Object with width and height in screen pixels
  */
 export function get_viewport_dimensions(
   page: PDFPageProxy,
-  scale: number
+  scale: number,
+  rotation: number = 0
 ): { width: number; height: number } {
-  const viewport = page.getViewport({ scale });
+  const viewport = page.getViewport({ scale, rotation });
   return {
     width: viewport.width,
     height: viewport.height,

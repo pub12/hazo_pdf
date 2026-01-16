@@ -14,17 +14,19 @@ import { default_config } from '../config/default_config';
  * @param annotations - Array of annotations to save
  * @param output_filename - Name for the saved PDF file (default: original filename with '_annotated' suffix)
  * @param config - Optional configuration for styling values
+ * @param page_rotations - Optional map of page rotations (page_index -> degrees: 0, 90, 180, 270)
  * @returns Promise that resolves when the PDF is saved
  */
 export async function save_annotations_to_pdf(
   pdf_url: string,
   annotations: PdfAnnotation[],
   _output_filename?: string, // Currently unused, kept for API compatibility
-  config?: PdfViewerConfig | null
+  config?: PdfViewerConfig | null,
+  page_rotations?: Map<number, number>
 ): Promise<Uint8Array> {
   try {
     // Dynamically import pdf-lib
-    const { PDFDocument, rgb } = await import('pdf-lib');
+    const { PDFDocument, rgb, degrees } = await import('pdf-lib');
     
     // Fetch the original PDF
     console.log('[PDF Saver] Fetching PDF from:', pdf_url);
@@ -39,7 +41,23 @@ export async function save_annotations_to_pdf(
     // Load the PDF document
     const pdf_doc = await PDFDocument.load(pdf_bytes);
     console.log('[PDF Saver] PDF loaded, pages:', pdf_doc.getPageCount());
-    
+
+    // Apply page rotations if provided
+    if (page_rotations && page_rotations.size > 0) {
+      console.log('[PDF Saver] Applying page rotations:', Object.fromEntries(page_rotations));
+      const pages = pdf_doc.getPages();
+      page_rotations.forEach((rotation, page_index) => {
+        if (page_index >= 0 && page_index < pages.length && rotation !== 0) {
+          const page = pages[page_index];
+          // Get existing rotation and add our rotation to it
+          const existing_rotation = page.getRotation().angle;
+          const new_rotation = (existing_rotation + rotation) % 360;
+          page.setRotation(degrees(new_rotation));
+          console.log(`[PDF Saver] Page ${page_index}: rotation ${existing_rotation}° -> ${new_rotation}°`);
+        }
+      });
+    }
+
     // Get config values or use defaults
     const fonts_config = config?.fonts || default_config.fonts;
     const highlight_config = config?.highlight_annotation || default_config.highlight_annotation;
@@ -275,14 +293,16 @@ export function download_pdf(pdf_bytes: Uint8Array, filename: string): void {
  * @param annotations - Array of annotations to save
  * @param output_filename - Name for the saved PDF file (default: original filename with '_annotated' suffix)
  * @param config - Optional configuration for styling values
+ * @param page_rotations - Optional map of page rotations (page_index -> degrees: 0, 90, 180, 270)
  */
 export async function save_and_download_pdf(
   pdf_url: string,
   annotations: PdfAnnotation[],
   output_filename?: string,
-  config?: PdfViewerConfig | null
+  config?: PdfViewerConfig | null,
+  page_rotations?: Map<number, number>
 ): Promise<void> {
-  const pdf_bytes = await save_annotations_to_pdf(pdf_url, annotations, output_filename, config);
+  const pdf_bytes = await save_annotations_to_pdf(pdf_url, annotations, output_filename, config, page_rotations);
   
   // Generate output filename
   const original_filename = pdf_url.split('/').pop() || 'document.pdf';

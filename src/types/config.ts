@@ -173,6 +173,8 @@ export interface PdfViewerConfig {
     toolbar_button_disabled_opacity: number;
     /** Whether to show zoom controls (true/false) */
     toolbar_show_zoom_controls: boolean;
+    /** Whether to show rotation controls (true/false) */
+    toolbar_show_rotation_controls: boolean;
     /** Whether to show square annotation button (true/false) */
     toolbar_show_square_button: boolean;
     /** Whether to show undo button (true/false) */

@@ -17,19 +17,22 @@ import { cn } from '../../utils/cn';
 export interface PdfPageRendererProps {
   /** PDF page proxy object */
   page: PDFPageProxy;
-  
+
   /** Zero-based page index */
   page_index: number;
-  
+
   /** Zoom/scale factor */
   scale: number;
-  
+
+  /** Rotation in degrees (0, 90, 180, 270) */
+  rotation?: number;
+
   /** Optional class name */
   className?: string;
-  
+
   /** Callback to provide coordinate mapper to parent */
   on_coordinate_mapper_ready?: (mapper: CoordinateMapper, dimensions: PageDimensions) => void;
-  
+
   /** Configuration object for styling */
   config?: PdfViewerConfig | null;
 }
@@ -42,6 +45,7 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
   page,
   page_index,
   scale,
+  rotation = 0,
   className = '',
   on_coordinate_mapper_ready,
   config = null,
@@ -56,21 +60,21 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
     callback_ref.current = on_coordinate_mapper_ready;
   }, [on_coordinate_mapper_ready]);
   
-  // Calculate dimensions from viewport (doesn't change unless page or scale changes)
+  // Calculate dimensions from viewport (doesn't change unless page, scale, or rotation changes)
   const viewport_dimensions = useMemo(() => {
     if (!page) return { width: 0, height: 0 };
-    const viewport = page.getViewport({ scale });
+    const viewport = page.getViewport({ scale, rotation });
     return {
       width: viewport.width,
       height: viewport.height,
     };
-  }, [page, scale]);
+  }, [page, scale, rotation]);
 
   // Create coordinate mapper - memoized to prevent recreation
   const coordinate_mapper = useMemo(() => {
     if (!page) return null;
-    return create_coordinate_mapper(page, scale);
-  }, [page, scale]);
+    return create_coordinate_mapper(page, scale, rotation);
+  }, [page, scale, rotation]);
 
   // Notify parent of coordinate mapper - only when dimensions actually change
   useEffect(() => {
@@ -131,8 +135,8 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
         return;
       }
 
-      // Get the viewport with the current scale
-      const viewport = page.getViewport({ scale });
+      // Get the viewport with the current scale and rotation
+      const viewport = page.getViewport({ scale, rotation });
 
       // Set up canvas
       const canvas = canvas_ref.current;
@@ -198,7 +202,7 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
         render_task_ref.current = null;
       }
     };
-  }, [page, scale, page_index]);
+  }, [page, scale, rotation, page_index]);
 
   // Show loading only if we don't have a page yet
   if (!page) {

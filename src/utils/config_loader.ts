@@ -473,6 +473,10 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         get_value('toolbar', 'toolbar_show_zoom_controls'),
         default_config.toolbar.toolbar_show_zoom_controls
       ),
+      toolbar_show_rotation_controls: parse_boolean(
+        get_value('toolbar', 'toolbar_show_rotation_controls'),
+        default_config.toolbar.toolbar_show_rotation_controls
+      ),
       toolbar_show_square_button: parse_boolean(
         get_value('toolbar', 'toolbar_show_square_button'),
         default_config.toolbar.toolbar_show_square_button

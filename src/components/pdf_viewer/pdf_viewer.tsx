@@ -6,7 +6,8 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, Square, Type, ExternalLink } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, RotateCw, RefreshCw, Square, Type, ExternalLink } from 'lucide-react';
+import { ToolbarDropdownButton } from './toolbar_dropdown_button';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
@@ -87,6 +88,10 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // File metadata sidepanel state (new flexible metadata)
   const [file_metadata_sidepanel_open, setFileMetadataSidepanelOpen] = useState(false);
   const [file_metadata_sidepanel_width, setFileMetadataSidepanelWidth] = useState(300);
+
+  // Page rotation state
+  const [page_rotations, setPageRotations] = useState<Map<number, number>>(new Map());
+  const [current_visible_page, setCurrentVisiblePage] = useState(0);
 
   // Multi-file state
   const [current_file, setCurrentFile] = useState<FileItem | null>(
@@ -872,6 +877,64 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     setScale(1.0);
   };
 
+  // Handle rotation controls
+  const normalize_rotation = (rotation: number): number => {
+    // Normalize rotation to 0, 90, 180, 270
+    let normalized = rotation % 360;
+    if (normalized < 0) normalized += 360;
+    return normalized;
+  };
+
+  const handle_rotate_left = useCallback(() => {
+    // Rotate current visible page left (counterclockwise 90°)
+    setPageRotations((prev) => {
+      const new_map = new Map(prev);
+      const current_rotation = new_map.get(current_visible_page) || 0;
+      new_map.set(current_visible_page, normalize_rotation(current_rotation - 90));
+      return new_map;
+    });
+  }, [current_visible_page]);
+
+  const handle_rotate_right = useCallback(() => {
+    // Rotate current visible page right (clockwise 90°)
+    setPageRotations((prev) => {
+      const new_map = new Map(prev);
+      const current_rotation = new_map.get(current_visible_page) || 0;
+      new_map.set(current_visible_page, normalize_rotation(current_rotation + 90));
+      return new_map;
+    });
+  }, [current_visible_page]);
+
+  const handle_rotate_all_left = useCallback(() => {
+    // Rotate all pages left (counterclockwise 90°)
+    if (!pdf_document) return;
+    setPageRotations((prev) => {
+      const new_map = new Map(prev);
+      for (let i = 0; i < pdf_document.numPages; i++) {
+        const current_rotation = new_map.get(i) || 0;
+        new_map.set(i, normalize_rotation(current_rotation - 90));
+      }
+      return new_map;
+    });
+  }, [pdf_document]);
+
+  const handle_rotate_all_right = useCallback(() => {
+    // Rotate all pages right (clockwise 90°)
+    if (!pdf_document) return;
+    setPageRotations((prev) => {
+      const new_map = new Map(prev);
+      for (let i = 0; i < pdf_document.numPages; i++) {
+        const current_rotation = new_map.get(i) || 0;
+        new_map.set(i, normalize_rotation(current_rotation + 90));
+      }
+      return new_map;
+    });
+  }, [pdf_document]);
+
+  const handle_visible_page_change = useCallback((page_index: number) => {
+    setCurrentVisiblePage(page_index);
+  }, []);
+
   // Handle sidepanel toggle
   const handle_sidepanel_toggle = () => {
     setSidepanelOpen((prev) => !prev);
@@ -930,10 +993,13 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     }
   }, [files, current_file, viewer_title, on_popout, popout_route]);
 
+  // Check if there are changes to save (annotations or rotations)
+  const has_changes_to_save = annotations.length > 0 || page_rotations.size > 0;
+
   // Handle save annotations to PDF
   const handle_save = async () => {
-    if (annotations.length === 0) {
-      console.warn('PdfViewer: No annotations to save');
+    if (!has_changes_to_save) {
+      console.warn('PdfViewer: No changes to save');
       return;
     }
 
@@ -955,7 +1021,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       const { save_annotations_to_pdf, download_pdf } = await import('../../utils/pdf_saver');
 
       // Save annotations to PDF and get the modified bytes
-      const pdf_bytes = await save_annotations_to_pdf(effective_url, annotations, output_filename, config_ref.current);
+      const pdf_bytes = await save_annotations_to_pdf(effective_url, annotations, output_filename, config_ref.current, page_rotations);
 
       // If callback is provided, call it (caller handles save/download)
       // Otherwise, download the modified PDF
@@ -1038,6 +1104,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     toolbar_show_save_button: show_save_button ?? base_toolbar_config.toolbar_show_save_button,
     toolbar_show_metadata_button: show_metadata_button ?? base_toolbar_config.toolbar_show_metadata_button,
     toolbar_show_annotate_button: show_annotate_button ?? base_toolbar_config.toolbar_show_annotate_button,
+    toolbar_show_rotation_controls: base_toolbar_config.toolbar_show_rotation_controls ?? true,
   };
 
   // Master toolbar toggle (defaults to true)
@@ -1131,8 +1198,49 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
                 e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
               }}
             >
-              <RotateCcw className="cls_pdf_viewer_toolbar_icon" size={16} />
+              <RefreshCw className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
+          </div>
+        )}
+
+        {/* Rotation Controls */}
+        {toolbar_config.toolbar_show_rotation_controls && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <ToolbarDropdownButton
+              icon={<RotateCcw size={16} />}
+              aria_label="Rotate page left"
+              title="Rotate page left (click for current page)"
+              on_main_click={handle_rotate_left}
+              background_color={toolbar_config.toolbar_button_background_color}
+              background_color_hover={toolbar_config.toolbar_button_background_color_hover}
+              text_color={toolbar_config.toolbar_button_text_color}
+              options={[
+                {
+                  id: 'rotate_left_current',
+                  label: 'Rotate left (current page)',
+                  icon: <RotateCcw size={14} />,
+                  on_click: handle_rotate_left,
+                },
+                {
+                  id: 'rotate_right_current',
+                  label: 'Rotate right (current page)',
+                  icon: <RotateCw size={14} />,
+                  on_click: handle_rotate_right,
+                },
+                {
+                  id: 'rotate_left_all',
+                  label: 'Rotate left (all pages)',
+                  icon: <RotateCcw size={14} />,
+                  on_click: handle_rotate_all_left,
+                },
+                {
+                  id: 'rotate_right_all',
+                  label: 'Rotate right (all pages)',
+                  icon: <RotateCw size={14} />,
+                  on_click: handle_rotate_all_right,
+                },
+              ]}
+            />
           </div>
         )}
 
@@ -1276,21 +1384,21 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             <button
               type="button"
               onClick={handle_save}
-              disabled={saving || annotations.length === 0}
+              disabled={saving || !has_changes_to_save}
               className={cn(
                 'cls_pdf_viewer_toolbar_button',
                 'cls_pdf_viewer_toolbar_button_save',
-                (saving || annotations.length === 0) && 'cls_pdf_viewer_toolbar_button_disabled'
+                (saving || !has_changes_to_save) && 'cls_pdf_viewer_toolbar_button_disabled'
               )}
-              aria-label="Save annotations to PDF"
-              title={saving ? 'Saving...' : (annotations.length === 0 ? 'No annotations to save' : 'Save annotations to PDF')}
+              aria-label="Save PDF"
+              title={saving ? 'Saving...' : (!has_changes_to_save ? 'No changes to save' : 'Save PDF')}
               style={{
                 backgroundColor: toolbar_config.toolbar_button_save_background_color,
                 color: toolbar_config.toolbar_button_save_text_color,
-                opacity: (saving || annotations.length === 0) ? toolbar_config.toolbar_button_disabled_opacity : 1,
+                opacity: (saving || !has_changes_to_save) ? toolbar_config.toolbar_button_disabled_opacity : 1,
               }}
               onMouseEnter={(e) => {
-                if (!(saving || annotations.length === 0)) {
+                if (!(saving || !has_changes_to_save)) {
                   e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_save_background_color_hover;
                 }
               }}
@@ -1468,6 +1576,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             current_tool={current_tool}
             background_color={effective_background_color}
             config={config_ref.current}
+            page_rotations={page_rotations}
+            on_visible_page_change={handle_visible_page_change}
             on_annotation_create={handle_annotation_create}
             on_annotation_click={(annotation, screen_x, screen_y, mapper) => {
               console.log(

@@ -102,6 +102,90 @@
   @apply px-2 text-sm font-medium;
 }
 
+/* Toolbar Dropdown Button */
+.cls_toolbar_dropdown_container {
+  position: relative;
+  display: inline-flex;
+}
+
+.cls_toolbar_dropdown_button {
+  display: flex;
+  align-items: stretch;
+}
+
+.cls_toolbar_dropdown_button_disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cls_toolbar_dropdown_main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.cls_toolbar_dropdown_main:focus {
+  @apply outline-none ring-2 ring-blue-500;
+}
+
+.cls_toolbar_dropdown_chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.cls_toolbar_dropdown_chevron:focus {
+  @apply outline-none ring-2 ring-blue-500;
+}
+
+.cls_toolbar_dropdown_menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 160px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.cls_toolbar_dropdown_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  color: #374151;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.cls_toolbar_dropdown_item:hover:not(.cls_toolbar_dropdown_item_disabled) {
+  background-color: #f3f4f6;
+}
+
+.cls_toolbar_dropdown_item:focus {
+  @apply outline-none bg-gray-100;
+}
+
+.cls_toolbar_dropdown_item_disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 /* Metadata Expand Button (floating at top of PDF content) */
 .cls_pdf_viewer_metadata_expand_btn {
   position: absolute;

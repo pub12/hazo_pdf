@@ -98,6 +98,7 @@ export const default_config: PdfViewerConfig = {
     toolbar_button_save_text_color: '#ffffff',
     toolbar_button_disabled_opacity: 0.5,
     toolbar_show_zoom_controls: true,
+    toolbar_show_rotation_controls: true,
     toolbar_show_square_button: true,
     toolbar_show_undo_button: true,
     toolbar_show_redo_button: true,
