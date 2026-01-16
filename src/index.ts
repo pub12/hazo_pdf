@@ -53,8 +53,8 @@ export {
 } from './utils/annotation_utils';
 
 // Config exports
-export { 
-  load_pdf_config, 
+export {
+  load_pdf_config,
   load_pdf_config_async,
   build_config_from_ini,
   parse_color,
@@ -63,6 +63,10 @@ export {
   parse_string,
 } from './utils/config_loader';
 export { default_config } from './config/default_config';
+
+// Logger exports
+export { set_logger, get_logger } from './utils/logger';
+export type { Logger } from './utils/logger';
 
 // Type exports
 export type * from './types';

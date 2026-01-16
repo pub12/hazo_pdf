@@ -7,7 +7,7 @@
 
 import { Suspense, lazy, useState, useEffect } from "react";
 import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
-import type { FileItem, PdfAnnotation, UploadResult } from "@/app/lib/hazo_pdf";
+import type { FileItem, PdfAnnotation, UploadResult, FileMetadataInput, Logger } from "@/app/lib/hazo_pdf";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
@@ -15,11 +15,72 @@ const PdfViewer = lazy(() =>
 );
 
 /**
+ * Create a logger instance for the test app
+ * Uses hazo_logs if available, falls back to console
+ */
+async function create_test_logger(): Promise<Logger | undefined> {
+  try {
+    // Try to dynamically import hazo_logs
+    const { createLogger } = await import('hazo_logs');
+    const logger = createLogger('hazo_pdf_test', 'config/hazo_logs_config.ini');
+    return logger;
+  } catch {
+    // hazo_logs not available, return undefined to use fallback
+    console.log('[TestApp] hazo_logs not available, using console fallback');
+    return undefined;
+  }
+}
+
+/**
+ * Sample file metadata for testing the file metadata sidepanel
+ * Demonstrates flexible JSON structure with field values and tables
+ */
+const sample_file_metadata: FileMetadataInput = [
+  {
+    filename: 'sample.pdf',
+    file_data: {
+      name: 'Australian Tax Office - Income Statement',
+      vendor: 'Australian Government',
+      document_type: 'Tax Document',
+      tax_year: '2023-24',
+      income_summary: [
+        { source: 'Salary/Wages', gross_amount: '$85,000.00', tax_withheld: '$22,500.00' },
+        { source: 'Interest Income', gross_amount: '$1,250.00', tax_withheld: '$0.00' },
+        { source: 'Dividends', gross_amount: '$2,500.00', tax_withheld: '$750.00' }
+      ],
+      deductions: [
+        { category: 'Work-related expenses', amount: '$1,200.00' },
+        { category: 'Self-education', amount: '$500.00' }
+      ]
+    }
+  },
+  {
+    filename: 'report.pdf',
+    file_data: {
+      name: 'Quarterly Financial Report',
+      vendor: 'Finance Department',
+      document_type: 'Report',
+      period: 'Q4 2024',
+      metrics: [
+        { metric: 'Revenue', value: '$1,250,000', change: '+15%' },
+        { metric: 'Expenses', value: '$850,000', change: '+8%' }
+      ]
+    }
+  }
+];
+
+/**
  * Multi-file demo page component
  */
 export default function MultiFileDemoPage() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [logger, setLogger] = useState<Logger | undefined>(undefined);
+
+  // Initialize logger on mount
+  useEffect(() => {
+    create_test_logger().then(setLogger);
+  }, []);
 
   // Load files from test-app directory on mount
   useEffect(() => {
@@ -174,6 +235,8 @@ function App() {
                 enable_popout={true}
                 popout_route="/pdf-viewer"
                 viewer_title="Hazo PDF Viewer"
+                file_metadata={sample_file_metadata}
+                logger={logger}
                 className="h-full w-full"
               />
             </Suspense>

@@ -12,10 +12,12 @@ import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
 import { MetadataSidepanel } from './metadata_sidepanel';
+import { FileMetadataSidepanel } from './file_metadata_sidepanel';
 import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp, MetadataInput, MetadataDataItem, PdfViewerRef, HighlightOptions } from '../../types';
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
+import { set_logger } from '../../utils/logger';
 import { FileManager } from '../file_manager';
 import type { FileItem, PopoutContext } from '../file_manager/types';
 
@@ -46,6 +48,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   sidepanel_metadata_enabled = false,
   metadata_input,
   on_metadata_change,
+  file_metadata,
   // Toolbar visibility props (override config file values)
   toolbar_enabled,
   show_zoom_controls,
@@ -67,6 +70,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   popout_route = '/pdf-viewer',
   on_popout,
   viewer_title,
+  logger,
 }, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,9 +80,13 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // Default tool is Pan (null) for scrolling the document
   const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>(null);
   const [saving, setSaving] = useState(false);
-  // Sidepanel state
+  // Sidepanel state (existing metadata sidepanel)
   const [sidepanel_open, setSidepanelOpen] = useState(false);
   const [sidepanel_width, setSidepanelWidth] = useState(300);
+
+  // File metadata sidepanel state (new flexible metadata)
+  const [file_metadata_sidepanel_open, setFileMetadataSidepanelOpen] = useState(false);
+  const [file_metadata_sidepanel_width, setFileMetadataSidepanelWidth] = useState(300);
 
   // Multi-file state
   const [current_file, setCurrentFile] = useState<FileItem | null>(
@@ -90,6 +98,14 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
   // Get the effective URL for loading (single file mode or from current file in multi-file mode)
   const effective_url = is_multi_file_mode ? current_file?.url : url;
+
+  // Set logger instance when provided
+  useEffect(() => {
+    set_logger(logger);
+    if (logger) {
+      logger.debug('Logger initialized for PdfViewer');
+    }
+  }, [logger]);
 
   // Content container ref for fit-to-width calculations
   const content_container_ref = useRef<HTMLDivElement>(null);
@@ -866,6 +882,16 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     setSidepanelWidth(width);
   };
 
+  // Handle file metadata sidepanel toggle
+  const handle_file_metadata_sidepanel_toggle = () => {
+    setFileMetadataSidepanelOpen((prev) => !prev);
+  };
+
+  // Handle file metadata sidepanel width change
+  const handle_file_metadata_sidepanel_width_change = (width: number) => {
+    setFileMetadataSidepanelWidth(width);
+  };
+
   // Handle metadata change
   const handle_metadata_change = (updatedRow: MetadataDataItem, allData: MetadataInput) => {
     if (on_metadata_change) {
@@ -1277,7 +1303,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           </div>
         )}
 
-        {/* Sidepanel toggle button */}
+        {/* Sidepanel toggle button (original metadata) */}
         {sidepanel_metadata_enabled && metadata_input && toolbar_config.toolbar_show_metadata_button && (
           <div className="cls_pdf_viewer_toolbar_group">
             <button
@@ -1304,6 +1330,42 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = sidepanel_open
+                  ? toolbar_config.toolbar_button_active_background_color
+                  : toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              <PanelRight className="cls_pdf_viewer_toolbar_icon" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* File metadata sidepanel toggle button */}
+        {file_metadata && file_metadata.length > 0 && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_file_metadata_sidepanel_toggle}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                file_metadata_sidepanel_open && 'cls_pdf_viewer_toolbar_button_active'
+              )}
+              aria-label="Toggle file metadata panel"
+              title="Toggle file metadata panel"
+              style={{
+                backgroundColor: file_metadata_sidepanel_open
+                  ? toolbar_config.toolbar_button_active_background_color
+                  : toolbar_config.toolbar_button_background_color,
+                color: file_metadata_sidepanel_open
+                  ? toolbar_config.toolbar_button_active_text_color
+                  : toolbar_config.toolbar_button_text_color,
+              }}
+              onMouseEnter={(e) => {
+                if (!file_metadata_sidepanel_open) {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = file_metadata_sidepanel_open
                   ? toolbar_config.toolbar_button_active_background_color
                   : toolbar_config.toolbar_button_background_color;
               }}
@@ -1365,11 +1427,15 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       )}
 
       {/* PDF Viewer Layout with Sidepanel */}
-      <div className={cn('cls_pdf_viewer_content_wrapper', sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
+      {(() => {
+        const any_sidepanel_open = sidepanel_open || file_metadata_sidepanel_open;
+        const total_sidepanel_width = (sidepanel_open ? sidepanel_width : 0) + (file_metadata_sidepanel_open ? file_metadata_sidepanel_width : 0);
+        return (
+      <div className={cn('cls_pdf_viewer_content_wrapper', any_sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
         <div
           ref={content_container_ref}
-          className={cn('cls_pdf_viewer_content', sidepanel_open && 'cls_pdf_viewer_content_with_sidepanel')}
-          style={sidepanel_open ? { width: `calc(100% - ${sidepanel_width}px)` } : undefined}
+          className={cn('cls_pdf_viewer_content', any_sidepanel_open && 'cls_pdf_viewer_content_with_sidepanel')}
+          style={any_sidepanel_open ? { width: `calc(100% - ${total_sidepanel_width}px)` } : undefined}
         >
           <PdfViewerLayout
             pdf_document={pdf_document}
@@ -1444,7 +1510,21 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             on_width_change={handle_sidepanel_width_change}
           />
         )}
+
+        {/* File Metadata Sidepanel (flexible JSON metadata) */}
+        {file_metadata && file_metadata.length > 0 && (
+          <FileMetadataSidepanel
+            is_open={file_metadata_sidepanel_open}
+            on_toggle={handle_file_metadata_sidepanel_toggle}
+            file_metadata={file_metadata}
+            current_filename={current_file?.name || (url ? url.split('/').pop() || '' : '')}
+            width={file_metadata_sidepanel_width}
+            on_width_change={handle_file_metadata_sidepanel_width_change}
+          />
+        )}
       </div>
+        );
+      })()}
 
       {/* Context Menu */}
       {context_menu?.visible && (

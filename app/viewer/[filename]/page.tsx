@@ -3,7 +3,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { TestAppLayout } from "../../test-app-layout";
-import type { MetadataInput, MetadataDataItem } from "../../../src/types";
+import type { MetadataInput, MetadataDataItem, FileMetadataInput } from "../../../src/types";
 
 /**
  * Lazy load PdfViewer component only on client side
@@ -92,6 +92,46 @@ const test_metadata: MetadataInput = {
 };
 
 /**
+ * Test file metadata for flexible JSON sidepanel
+ * Demonstrates the new file_metadata structure with:
+ * - Simple field values (name, vendor)
+ * - Table arrays with multiple fields per row
+ */
+const test_file_metadata: FileMetadataInput = [
+  {
+    filename: 'sample.pdf',
+    file_data: {
+      name: 'Sample Invoice Document',
+      vendor: 'Acme Corporation',
+      document_type: 'Invoice',
+      date_created: '2025-01-15',
+      line_items: [
+        { item_name: 'Widget A', quantity: '10', unit_price: '$25.00', total: '$250.00' },
+        { item_name: 'Widget B', quantity: '5', unit_price: '$50.00', total: '$250.00' },
+        { item_name: 'Service Fee', quantity: '1', unit_price: '$100.00', total: '$100.00' }
+      ],
+      payment_info: [
+        { method: 'Credit Card', account_ending: '4242', status: 'Processed' }
+      ]
+    }
+  },
+  {
+    filename: 'report.pdf',
+    file_data: {
+      name: 'Quarterly Report Q4 2024',
+      vendor: 'Finance Department',
+      document_type: 'Report',
+      date_created: '2025-01-10',
+      summary_metrics: [
+        { metric: 'Revenue', value: '$1,250,000', change: '+15%' },
+        { metric: 'Expenses', value: '$850,000', change: '+8%' },
+        { metric: 'Net Profit', value: '$400,000', change: '+25%' }
+      ]
+    }
+  }
+];
+
+/**
  * PDF Viewer page component
  * Displays a PDF file using the hazo_pdf PdfViewer component
  * Wrapped in TestAppLayout to show the sidebar
@@ -157,6 +197,7 @@ export default function ViewerPage() {
                 sidepanel_metadata_enabled={true}
                 metadata_input={metadata}
                 on_metadata_change={handle_metadata_change}
+                file_metadata={test_file_metadata}
               />
             </Suspense>
           ) : (

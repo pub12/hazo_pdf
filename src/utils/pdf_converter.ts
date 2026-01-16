@@ -4,6 +4,8 @@
  * This module is standalone and can be tested independently
  */
 
+import { get_logger } from './logger';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -196,7 +198,8 @@ export async function convert_to_pdf(
       error: `Conversion not implemented for type: ${mime_type}`,
     };
   } catch (error) {
-    console.error('[PDF Converter] Error converting file:', error);
+    const logger = get_logger();
+    logger.error('Error converting file', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error during conversion',
@@ -225,7 +228,8 @@ export async function convert_image_to_pdf(
     // Dynamically import pdf-lib
     const { PDFDocument } = await import('pdf-lib');
 
-    console.log('[PDF Converter] Converting image to PDF:', filename, mime_type);
+    const logger = get_logger();
+    logger.info('Converting image to PDF', { filename, mime_type });
 
     // Create a new PDF document
     const pdf_doc = await PDFDocument.create();
@@ -234,12 +238,16 @@ export async function convert_image_to_pdf(
     let embedded_image;
 
     if (mime_type === 'image/jpeg') {
+      logger.debug('Embedding JPEG image directly', { bytes: image_bytes.length });
       embedded_image = await pdf_doc.embedJpg(image_bytes);
     } else if (mime_type === 'image/png') {
+      logger.debug('Embedding PNG image directly', { bytes: image_bytes.length });
       embedded_image = await pdf_doc.embedPng(image_bytes);
     } else if (mime_type === 'image/gif' || mime_type === 'image/webp') {
       // GIF and WebP need to be converted to PNG first via canvas
+      logger.debug('Converting image via canvas', { mime_type, bytes: image_bytes.length });
       const png_bytes = await convert_image_via_canvas(image_bytes, mime_type);
+      logger.debug('Image converted to PNG', { original_bytes: image_bytes.length, png_bytes: png_bytes.length });
       embedded_image = await pdf_doc.embedPng(png_bytes);
     } else {
       return {
@@ -298,7 +306,7 @@ export async function convert_image_to_pdf(
     const name_without_ext = filename.replace(/\.[^.]+$/, '');
     const pdf_filename = `${name_without_ext}.pdf`;
 
-    console.log('[PDF Converter] Image converted to PDF:', pdf_filename, pdf_bytes.length, 'bytes');
+    logger.info('Image converted to PDF', { filename: pdf_filename, bytes: pdf_bytes.length });
 
     return {
       success: true,
@@ -309,7 +317,8 @@ export async function convert_image_to_pdf(
       page_count: 1,
     };
   } catch (error) {
-    console.error('[PDF Converter] Error converting image:', error);
+    const logger = get_logger();
+    logger.error('Error converting image', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error converting image',
@@ -336,7 +345,8 @@ export async function convert_text_to_pdf(
     // Dynamically import pdf-lib
     const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
 
-    console.log('[PDF Converter] Converting text to PDF:', filename);
+    const logger = get_logger();
+    logger.info('Converting text to PDF', { filename, content_length: text_content.length });
 
     // Create a new PDF document
     const pdf_doc = await PDFDocument.create();
@@ -392,7 +402,7 @@ export async function convert_text_to_pdf(
     const name_without_ext = filename.replace(/\.[^.]+$/, '');
     const pdf_filename = `${name_without_ext}.pdf`;
 
-    console.log('[PDF Converter] Text converted to PDF:', pdf_filename, pdf_bytes.length, 'bytes,', page_count, 'pages');
+    logger.info('Text converted to PDF', { filename: pdf_filename, bytes: pdf_bytes.length, pages: page_count });
 
     return {
       success: true,
@@ -403,7 +413,8 @@ export async function convert_text_to_pdf(
       page_count,
     };
   } catch (error) {
-    console.error('[PDF Converter] Error converting text:', error);
+    const logger = get_logger();
+    logger.error('Error converting text', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error converting text',
@@ -435,7 +446,8 @@ export async function convert_excel_to_pdf(
     const XLSX = await import('xlsx');
     const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
 
-    console.log('[PDF Converter] Converting Excel to PDF (landscape):', filename);
+    const logger = get_logger();
+    logger.info('Converting Excel to PDF', { filename, orientation: 'landscape' });
 
     // Parse the Excel workbook
     const workbook = XLSX.read(excel_bytes, { type: 'array' });
@@ -495,6 +507,15 @@ export async function convert_excel_to_pdf(
       const total_width = col_widths.reduce((sum, w) => sum + w, 0);
       const scale = total_width > available_width ? available_width / total_width : 1;
       const scaled_col_widths = col_widths.map(w => w * scale);
+
+      logger.debug('Excel sheet scale calculation', {
+        sheet_name,
+        num_cols,
+        total_width,
+        available_width,
+        scale: Math.round(scale * 100) / 100,
+        rows: data.length,
+      });
 
       // Calculate rows per page using scaled dimensions
       const scaled_line_height = line_height * scale;
@@ -770,7 +791,7 @@ export async function convert_excel_to_pdf(
     const name_without_ext = filename.replace(/\.[^.]+$/, '');
     const pdf_filename = `${name_without_ext}.pdf`;
 
-    console.log('[PDF Converter] Excel converted to PDF:', pdf_filename, pdf_bytes.length, 'bytes,', pdf_doc.getPageCount(), 'pages');
+    logger.info('Excel converted to PDF', { filename: pdf_filename, bytes: pdf_bytes.length, pages: pdf_doc.getPageCount() });
 
     return {
       success: true,
@@ -781,7 +802,8 @@ export async function convert_excel_to_pdf(
       page_count: pdf_doc.getPageCount(),
     };
   } catch (error) {
-    console.error('[PDF Converter] Error converting Excel:', error);
+    const logger = get_logger();
+    logger.error('Error converting Excel', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error converting Excel',

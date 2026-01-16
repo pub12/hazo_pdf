@@ -4,6 +4,10 @@
  */
 
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import type { Logger } from '../utils/logger';
+
+// Re-export Logger type
+export type { Logger };
 
 // Export config types
 export type * from './config';
@@ -80,6 +84,9 @@ export interface PdfViewerProps {
   /** Returns both the updated row and the complete metadata structure */
   on_metadata_change?: (updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput };
 
+  /** File metadata input - flexible JSON array with filename matching */
+  file_metadata?: FileMetadataInput;
+
   // --- Toolbar visibility props (override config file values) ---
 
   /** Whether to show the toolbar at all (default: true) */
@@ -140,6 +147,9 @@ export interface PdfViewerProps {
 
   /** Title for the viewer (shown in dialog mode or popout) */
   viewer_title?: string;
+
+  /** Logger instance for logging (from hazo_logs or compatible) */
+  logger?: Logger;
 }
 
 /**
@@ -319,6 +329,23 @@ export interface MetadataInput {
   /** Array of footer items */
   footer: MetadataFooterItem[];
 }
+
+/**
+ * File metadata item for flexible metadata sidepanel
+ * Associates metadata with a specific file by filename
+ */
+export interface FileMetadataItem {
+  /** Filename to match against current file */
+  filename: string;
+  /** Flexible metadata structure with string fields and table arrays */
+  file_data: Record<string, string | Array<Record<string, string>>>;
+}
+
+/**
+ * Array of file metadata items
+ * Used as input for the file metadata sidepanel
+ */
+export type FileMetadataInput = FileMetadataItem[];
 
 /**
  * Options for programmatic highlight creation via PdfViewerRef
