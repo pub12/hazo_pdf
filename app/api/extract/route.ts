@@ -11,6 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { StorageProvider, ExtractionData, FileMetadataRecord } from 'hazo_files';
 import { createFileMetadataService, HAZO_FILES_TABLE_SCHEMA } from 'hazo_files';
 import { SqliteAdapter, createCrudService } from 'hazo_connect/server';
+import { createLogger } from 'hazo_logs';
+
+// Create shared loggers that write to hazo_logs (same log file as other packages)
+const llm_logger = createLogger('hazo_llm_api');
+const files_logger = createLogger('hazo_files');
 
 // Track initialization state
 let is_initialized = false;
@@ -25,16 +30,12 @@ async function ensure_initialized(): Promise<void> {
   }
 
   try {
-    const { initialize_llm_api, get_current_config, create_hazo_logger, parse_logging_config } = await import('hazo_llm_api/server');
+    const { initialize_llm_api, get_current_config } = await import('hazo_llm_api/server');
 
-    // Parse logging config and create logger for hazo_llm_api
-    // This ensures all logs (including errors) go to the hazo_logs log file
-    const log_config = parse_logging_config('./config/hazo_llm_api_config.ini');
-    const logger = create_hazo_logger(log_config);
-
-    // Initialize hazo_llm_api with the logger
-    await initialize_llm_api({ logger });
-    console.log('[ExtractAPI] hazo_llm_api initialized with hazo_logs logger');
+    // Initialize hazo_llm_api with the shared hazo_logs logger
+    // This ensures all LLM logs go to the same log file as other packages
+    await initialize_llm_api({ logger: llm_logger });
+    llm_logger.info('hazo_llm_api initialized with shared hazo_logs logger');
 
     // Get the SQLite path from hazo_llm_api config
     const config = get_current_config();
@@ -225,8 +226,8 @@ export async function POST(request: NextRequest) {
           HAZO_FILES_TABLE_SCHEMA.tableName
         );
 
-        // Create FileMetadataService with the CrudService
-        const metadataService = createFileMetadataService(crudService);
+        // Create FileMetadataService with the CrudService and shared logger
+        const metadataService = createFileMetadataService(crudService, { logger: files_logger });
 
         // Ensure the file record exists (addExtraction requires it)
         // First check if the record exists
