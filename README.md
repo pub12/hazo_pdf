@@ -13,6 +13,11 @@ A React component library for viewing and annotating PDF documents with support 
 - 💾 **Annotation Persistence** - Save annotations directly into PDF files
 - 🎯 **Pan Tool** - Default pan/scroll mode for document navigation
 - ↪️ **Undo/Redo** - Full annotation history management
+- 📂 **Multi-File Support** - Manage and view multiple PDF files with file manager UI
+- 🔄 **PDF Rotation** - Rotate PDF pages 90 degrees clockwise or counter-clockwise
+- 📊 **Data Extraction** - Extract structured data from PDFs using LLM prompts (via hazo_llm_api)
+- 📁 **File Info Sidepanel** - Display extracted metadata and file system information
+- ☁️ **Remote Storage** - Load and save PDFs from Google Drive, Dropbox, or local storage (via hazo_files)
 
 ## Installation
 
@@ -29,6 +34,14 @@ npm install hazo_logs
 ```
 
 The `hazo_logs` package is an optional peer dependency. If not installed, hazo_pdf will use console-based logging as a fallback.
+
+**hazo_files** (optional): For remote file storage integration (Google Drive, Dropbox, local filesystem)
+
+```bash
+npm install hazo_files
+```
+
+The `hazo_files` package is an optional peer dependency. When installed, it enables loading and saving PDFs from remote storage providers. See [hazo_files Integration](#hazo_files-integration) for details.
 
 ## CSS Import Options
 
@@ -696,6 +709,7 @@ You can override any or all of these on a per-highlight basis.
 | `sidepanel_metadata_enabled` | `boolean` | `false` | If `true`, enables the metadata sidepanel on the right side of the viewer. The panel can be toggled from the toolbar or right edge button. |
 | `metadata_input` | `MetadataInput` | `undefined` | Metadata structure with header, data (accordions), and footer sections. Each section supports different format types (h1-h5, body) and editable fields. See [Sidepanel Metadata](#sidepanel-metadata) section for details. |
 | `on_metadata_change` | `(updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput }` | `undefined` | Callback when a metadata field is edited. Receives the updated row and complete metadata structure. Must return both parameters. Use this to persist metadata changes to your backend. |
+| `file_metadata` | `FileMetadataInput` | `undefined` | Array of file metadata items with extracted data. Each item has `filename` (to match current file) and `file_data` (flexible JSON object with string fields or table arrays). See [File Info Sidepanel](#file-info-sidepanel) section for details. |
 
 ##### Custom Stamps
 
@@ -747,6 +761,45 @@ const stamps = JSON.stringify([
 />
 ```
 
+##### Data Extraction
+
+Props to configure LLM-based data extraction from PDFs. Requires `hazo_llm_api` package.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `show_extract_button` | `boolean` | `false` | Show Extract button in toolbar for LLM-based data extraction. |
+| `extract_prompt_area` | `string` | `undefined` | Prompt area for extraction (e.g., "invoices", "contracts"). Used to locate prompts in hazo_llm_api. |
+| `extract_prompt_key` | `string` | `undefined` | Prompt key for extraction (e.g., "extract_invoice_data"). Identifies specific prompt to use. |
+| `extract_api_endpoint` | `string` | `undefined` | API endpoint for server-side extraction (e.g., "/api/extract"). POST endpoint that receives PDF data and returns extracted JSON. |
+| `extract_storage_type` | `'local' \| 'google_drive'` | `'local'` | Storage type for hazo_files integration when saving extracted data. |
+| `on_extract_complete` | `(data: Record<string, unknown>) => void` | `undefined` | Callback when extraction completes successfully. Receives extracted data object. Data is also automatically saved to hazo_files SQLite table. |
+| `on_extract_error` | `(error: Error) => void` | `undefined` | Callback when extraction fails. Receives error object with details. |
+
+##### Multi-File Support
+
+Props for managing multiple PDF files. Mutually exclusive with `url` prop.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `files` | `FileItem[]` | `undefined` | Array of files for multi-file mode. When provided, displays file manager UI. Mutually exclusive with `url` prop. |
+| `on_file_select` | `(file: FileItem) => void` | `undefined` | Callback when a file is selected in multi-file mode. |
+| `on_file_delete` | `(file_id: string) => void` | `undefined` | Callback when a file is deleted in multi-file mode. Receives file ID. |
+| `on_upload` | `(file: File, converted_pdf?: Uint8Array) => Promise<UploadResult>` | `undefined` | Callback for file upload. Receives original file and optional converted PDF (for non-PDF files). Must return `{ success: boolean, file_id?: string, url?: string, error?: string }`. |
+| `on_files_change` | `(files: FileItem[]) => void` | `undefined` | Callback when files array changes (file added, deleted, or reordered). |
+| `enable_popout` | `boolean` | `false` | Enable popout to new tab feature. Shows popout button in toolbar. |
+| `popout_route` | `string` | `'/pdf-viewer'` | Route path for popout viewer. Used to construct new tab URL. |
+| `on_popout` | `(context: PopoutContext) => void` | `undefined` | Custom popout handler. Overrides default sessionStorage behavior. Receives context with file info and annotations. |
+| `viewer_title` | `string` | `undefined` | Title for the viewer (shown in dialog mode or popout window). |
+
+##### hazo_files Integration
+
+Props for remote storage integration via `hazo_files` package.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `file_manager` | `FileAccessProvider` | `undefined` | File access provider from hazo_files for loading/saving PDFs via remote storage (Google Drive, Dropbox, local filesystem). Must be initialized before passing to component. |
+| `save_path` | `string` | `undefined` | Remote path for saving PDF via hazo_files. Used with `file_manager` when saving annotated PDFs. |
+
 ##### Toolbar Visibility
 
 Props to control toolbar button visibility. These override config file values.
@@ -760,6 +813,9 @@ Props to control toolbar button visibility. These override config file values.
 | `show_redo_button` | `boolean` | `true` | Show redo button. |
 | `show_save_button` | `boolean` | `true` | Show save button. |
 | `show_metadata_button` | `boolean` | `true` | Show metadata panel button (only visible when `sidepanel_metadata_enabled` is true). |
+| `show_annotate_button` | `boolean` | `true` | Show annotate (FreeText) button. |
+| `show_file_info_button` | `boolean` | `true` | Show file info sidepanel button (only visible when `file_metadata` is provided). |
+| `show_extract_button` | `boolean` | `false` | Show Extract button for data extraction. Requires extraction props to be configured. |
 | `on_close` | `() => void` | `undefined` | Callback when close button is clicked. When provided, shows a close button (X) in the toolbar. Useful for modal/dialog usage. |
 
 **Example - Minimal toolbar:**
@@ -1420,6 +1476,356 @@ The position and bracket style can be configured via the config file:
 - `suffix_text_position`: `"adjacent"`, `"below_single_line"`, or `"below_multi_line"` (default)
 - `suffix_enclosing_brackets`: Two-character string like `"[]"`, `"()"`, `"{}"` (default: `"[]"`)
 - `add_enclosing_brackets_to_suffixes`: `true` or `false` (default: `true`)
+
+---
+
+## Multi-File Support
+
+The PDF viewer can manage and display multiple PDF files with an integrated file manager interface.
+
+### Basic Multi-File Usage
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import type { FileItem, UploadResult } from 'hazo_pdf';
+import { useState } from 'react';
+import 'hazo_pdf/styles.css';
+
+function MultiFileViewer() {
+  const [files, setFiles] = useState<FileItem[]>([
+    {
+      id: '1',
+      name: 'document1.pdf',
+      url: '/pdfs/document1.pdf',
+      size: 245000,
+      type: 'application/pdf',
+      uploaded_at: new Date()
+    },
+    {
+      id: '2',
+      name: 'document2.pdf',
+      url: '/pdfs/document2.pdf',
+      size: 180000,
+      type: 'application/pdf',
+      uploaded_at: new Date()
+    }
+  ]);
+
+  const handle_upload = async (file: File, converted_pdf?: Uint8Array): Promise<UploadResult> => {
+    // Upload to your server
+    const formData = new FormData();
+    const pdf_to_upload = converted_pdf
+      ? new Blob([converted_pdf], { type: 'application/pdf' })
+      : file;
+
+    formData.append('file', pdf_to_upload, file.name.replace(/\.[^.]+$/, '.pdf'));
+
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    return {
+      success: true,
+      file_id: result.file_id,
+      url: result.url
+    };
+  };
+
+  return (
+    <div style={{ width: '100%', height: '100vh' }}>
+      <PdfViewer
+        files={files}
+        on_files_change={setFiles}
+        on_upload={handle_upload}
+        enable_popout={true}
+        popout_route="/pdf-viewer"
+      />
+    </div>
+  );
+}
+```
+
+**Features demonstrated:**
+- Multiple file management with file list UI
+- File upload with automatic conversion (images, Excel, text to PDF)
+- Popout to new tab functionality
+- File selection and deletion
+
+**FileItem Interface:**
+
+```typescript
+interface FileItem {
+  id: string;              // Unique file identifier
+  name: string;            // Display name
+  url: string;             // URL or path to PDF
+  size: number;            // File size in bytes
+  type: string;            // MIME type
+  uploaded_at: Date;       // Upload timestamp
+}
+```
+
+**Notes:**
+- `files` prop and `url` prop are mutually exclusive
+- When `files` is provided, the file manager UI is displayed
+- Files can be uploaded as PDFs or non-PDF formats (images, Excel, text files)
+- Non-PDF files are automatically converted to PDF before upload
+
+---
+
+## PDF Rotation
+
+The PDF viewer supports rotating pages 90 degrees clockwise or counter-clockwise.
+
+### Rotation Controls
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function RotatableViewer() {
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/document.pdf"
+        toolbar_enabled={true}
+      />
+    </div>
+  );
+}
+```
+
+**Toolbar Buttons:**
+- **Rotate Left** (counter-clockwise): Rotates current page 90° left
+- **Rotate Right** (clockwise): Rotates current page 90° right
+
+**Rotation Features:**
+- Rotation is per-page (each page can have different rotation)
+- Rotation state persists during the session
+- Rotation is applied when saving the PDF
+- Keyboard shortcuts: `Ctrl+[` (rotate left), `Ctrl+]` (rotate right)
+
+---
+
+## Data Extraction
+
+Extract structured data from PDF documents using LLM prompts. Requires the optional `hazo_llm_api` package.
+
+### Basic Extraction Usage
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function ExtractionViewer() {
+  const handle_extract_complete = (data: Record<string, unknown>) => {
+    console.log('Extracted data:', data);
+    // Data is automatically saved to hazo_files SQLite table
+  };
+
+  const handle_extract_error = (error: Error) => {
+    console.error('Extraction failed:', error);
+  };
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/invoice.pdf"
+        show_extract_button={true}
+        extract_prompt_area="invoices"
+        extract_prompt_key="extract_invoice_data"
+        extract_api_endpoint="/api/extract"
+        extract_storage_type="local"
+        on_extract_complete={handle_extract_complete}
+        on_extract_error={handle_extract_error}
+      />
+    </div>
+  );
+}
+```
+
+**Extraction Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `show_extract_button` | `boolean` | Show the Extract button in toolbar |
+| `extract_prompt_area` | `string` | Prompt area (e.g., "invoices", "contracts") |
+| `extract_prompt_key` | `string` | Prompt key (e.g., "extract_invoice_data") |
+| `extract_api_endpoint` | `string` | API endpoint for extraction (e.g., "/api/extract") |
+| `extract_storage_type` | `'local' \| 'google_drive'` | Storage type for hazo_files (default: 'local') |
+| `on_extract_complete` | `(data) => void` | Callback when extraction succeeds |
+| `on_extract_error` | `(error) => void` | Callback when extraction fails |
+
+**API Endpoint Requirements:**
+
+Your extraction endpoint should:
+1. Receive POST request with `{ pdf_data: base64_string, prompt_area: string, prompt_key: string }`
+2. Use `hazo_llm_api` to call LLM with the prompt and PDF data
+3. Return `{ success: true, data: extracted_data }` or `{ success: false, error: string }`
+
+**Extracted Data Storage:**
+
+Extracted data is automatically saved to the `hazo_files` SQLite table with:
+- `filename`: PDF filename
+- `file_type`: "pdf"
+- `file_data`: JSON object with extracted fields
+- `file_path`: File path or URL
+- `storage_type`: 'local' or 'google_drive'
+
+---
+
+## File Info Sidepanel
+
+Display extracted metadata and file system information in a retractable sidepanel.
+
+### Enabling File Info Sidepanel
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import type { FileMetadataInput } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function ViewerWithFileInfo() {
+  const file_metadata: FileMetadataInput = [
+    {
+      filename: 'invoice.pdf',
+      file_data: {
+        // Simple string fields
+        invoice_number: 'INV-2024-001',
+        total_amount: '$1,250.00',
+        invoice_date: '2024-01-15',
+
+        // Table fields (array of objects)
+        line_items: [
+          { item: 'Widget A', quantity: '10', price: '$50.00', total: '$500.00' },
+          { item: 'Widget B', quantity: '15', price: '$50.00', total: '$750.00' }
+        ]
+      }
+    }
+  ];
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/invoice.pdf"
+        file_metadata={file_metadata}
+        show_file_info_button={true}
+      />
+    </div>
+  );
+}
+```
+
+**FileMetadataInput Structure:**
+
+```typescript
+interface FileMetadataInput {
+  filename: string;  // Filename to match
+  file_data: Record<string, string | Array<Record<string, string>>>;
+}
+```
+
+**Field Types:**
+- **String fields**: Simple key-value pairs displayed as labels
+- **Table fields**: Arrays of objects displayed as collapsible tables with rows
+
+**Sidepanel Features:**
+- **Extracted Data Section**: Shows all fields from `file_data`
+- **File System Section**: Shows filename and path information
+- **Collapsible Tables**: Table fields can be expanded/collapsed
+- **Resizable**: Drag left edge to resize panel (200px - 800px)
+- **Responsive**: Adapts to mobile/tablet/desktop screens
+
+**Field Formatting:**
+- Field names are automatically converted from `snake_case` to Title Case
+- Table rows display as two-column layouts (field name | value)
+- Empty data shows "No file information available"
+
+---
+
+## hazo_files Integration
+
+Load and save PDFs from remote storage providers (Google Drive, Dropbox, local filesystem) using the `hazo_files` package.
+
+### Basic hazo_files Usage
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import { FileManager } from 'hazo_files';
+import 'hazo_pdf/styles.css';
+
+async function ViewerWithRemoteStorage() {
+  // Initialize hazo_files FileManager
+  const file_manager = new FileManager({
+    storage_type: 'google_drive',
+    config_file: 'config/hazo_files_config.ini'
+  });
+
+  await file_manager.initialize();
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/remote/path/to/document.pdf"
+        file_manager={file_manager}
+        save_path="/remote/path/to/document.pdf"
+      />
+    </div>
+  );
+}
+```
+
+**hazo_files Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `file_manager` | `FileAccessProvider` | Initialized hazo_files FileManager instance |
+| `save_path` | `string` | Remote path for saving PDF (used with `on_save`) |
+
+**Features:**
+- Load PDFs from remote storage (Google Drive, Dropbox, local filesystem)
+- Save annotated PDFs back to remote storage
+- Automatic data conversion (Buffer/ArrayBuffer/Uint8Array)
+- Error handling with logging
+
+**FileAccessProvider Interface:**
+
+```typescript
+interface FileAccessProvider {
+  downloadFile(remotePath: string, localPath?: string): Promise<FileDownloadResult>;
+  uploadFile(source: Buffer | Uint8Array, remotePath: string, options?: { overwrite?: boolean }): Promise<FileUploadResult>;
+  isInitialized(): boolean;
+}
+```
+
+**Example: Save to Remote Storage**
+
+```tsx
+const handle_save = async (pdf_bytes: Uint8Array, filename: string) => {
+  if (file_manager && save_path) {
+    const result = await save_pdf_data(pdf_bytes, save_path, file_manager);
+
+    if (result.success) {
+      console.log('Saved to remote storage:', save_path);
+    } else {
+      console.error('Failed to save:', result.error);
+    }
+  }
+};
+
+<PdfViewer
+  url="/remote/document.pdf"
+  file_manager={file_manager}
+  save_path="/remote/document.pdf"
+  on_save={handle_save}
+/>
+```
 
 ---
 

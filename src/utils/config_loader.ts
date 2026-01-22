@@ -501,6 +501,14 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         get_value('toolbar', 'toolbar_show_annotate_button'),
         default_config.toolbar.toolbar_show_annotate_button
       ),
+      toolbar_show_file_info_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_file_info_button'),
+        default_config.toolbar.toolbar_show_file_info_button
+      ),
+      toolbar_show_extract_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_extract_button'),
+        default_config.toolbar.toolbar_show_extract_button
+      ),
       toolbar_zoom_out_label: parse_string(
         get_value('toolbar', 'toolbar_zoom_out_label'),
         default_config.toolbar.toolbar_zoom_out_label

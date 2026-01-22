@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { Home, FileText, ChevronRight, ChevronDown, Layout, MessageSquare, PanelRight, Settings, Highlighter, Files, Code } from "lucide-react";
+import { Home, FileText, ChevronRight, ChevronDown, Layout, MessageSquare, PanelRight, Settings, Highlighter, Files, Code, FolderOpen, Sparkles, Table2 } from "lucide-react";
 
 /**
  * File info from API
@@ -246,6 +246,41 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                     <Link href="/demo/multi-file" className="cls_test_app_sidebar_menu_item">
                       <Files className="cls_test_app_sidebar_menu_icon" />
                       <span>Multi-File</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/file-browser" className="cls_test_app_sidebar_menu_item">
+                      <FolderOpen className="cls_test_app_sidebar_menu_icon" />
+                      <span>File Browser</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/file-table" className="cls_test_app_sidebar_menu_item">
+                      <Table2 className="cls_test_app_sidebar_menu_icon" />
+                      <span>File Table</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* LLM Tools Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className="cls_test_app_sidebar_label">
+              LLM Tools
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/prompt-editor" className="cls_test_app_sidebar_menu_item">
+                      <Sparkles className="cls_test_app_sidebar_menu_icon" />
+                      <span>Prompt Editor</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

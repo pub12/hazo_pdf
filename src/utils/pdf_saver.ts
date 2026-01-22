@@ -9,16 +9,16 @@ import { default_config } from '../config/default_config';
 
 /**
  * Save annotations into a PDF document
- * This function fetches the PDF, adds annotations, and downloads the modified PDF
- * @param pdf_url - URL of the PDF file
+ * This function loads the PDF (from URL or ArrayBuffer), adds annotations, and returns the modified PDF
+ * @param pdf_source - URL of the PDF file OR ArrayBuffer containing PDF data
  * @param annotations - Array of annotations to save
  * @param output_filename - Name for the saved PDF file (default: original filename with '_annotated' suffix)
  * @param config - Optional configuration for styling values
  * @param page_rotations - Optional map of page rotations (page_index -> degrees: 0, 90, 180, 270)
- * @returns Promise that resolves when the PDF is saved
+ * @returns Promise that resolves to the modified PDF as Uint8Array
  */
 export async function save_annotations_to_pdf(
-  pdf_url: string,
+  pdf_source: string | ArrayBuffer,
   annotations: PdfAnnotation[],
   _output_filename?: string, // Currently unused, kept for API compatibility
   config?: PdfViewerConfig | null,
@@ -27,16 +27,24 @@ export async function save_annotations_to_pdf(
   try {
     // Dynamically import pdf-lib
     const { PDFDocument, rgb, degrees } = await import('pdf-lib');
-    
-    // Fetch the original PDF
-    console.log('[PDF Saver] Fetching PDF from:', pdf_url);
-    const pdf_response = await fetch(pdf_url);
-    if (!pdf_response.ok) {
-      throw new Error(`Failed to fetch PDF: ${pdf_response.status} ${pdf_response.statusText}`);
+
+    // Get PDF bytes from source (URL or ArrayBuffer)
+    let pdf_bytes: ArrayBuffer;
+
+    if (typeof pdf_source === 'string') {
+      // Fetch the PDF from URL
+      console.log('[PDF Saver] Fetching PDF from:', pdf_source);
+      const pdf_response = await fetch(pdf_source);
+      if (!pdf_response.ok) {
+        throw new Error(`Failed to fetch PDF: ${pdf_response.status} ${pdf_response.statusText}`);
+      }
+      pdf_bytes = await pdf_response.arrayBuffer();
+      console.log('[PDF Saver] PDF fetched, size:', pdf_bytes.byteLength, 'bytes');
+    } else {
+      // Use provided ArrayBuffer directly
+      pdf_bytes = pdf_source;
+      console.log('[PDF Saver] Using provided PDF data, size:', pdf_bytes.byteLength, 'bytes');
     }
-    
-    const pdf_bytes = await pdf_response.arrayBuffer();
-    console.log('[PDF Saver] PDF fetched, size:', pdf_bytes.byteLength, 'bytes');
     
     // Load the PDF document
     const pdf_doc = await PDFDocument.load(pdf_bytes);
@@ -289,26 +297,28 @@ export function download_pdf(pdf_bytes: Uint8Array, filename: string): void {
 
 /**
  * Save annotations to PDF and download
- * @param pdf_url - URL of the PDF file
+ * @param pdf_source - URL of the PDF file OR ArrayBuffer containing PDF data
  * @param annotations - Array of annotations to save
  * @param output_filename - Name for the saved PDF file (default: original filename with '_annotated' suffix)
  * @param config - Optional configuration for styling values
  * @param page_rotations - Optional map of page rotations (page_index -> degrees: 0, 90, 180, 270)
  */
 export async function save_and_download_pdf(
-  pdf_url: string,
+  pdf_source: string | ArrayBuffer,
   annotations: PdfAnnotation[],
   output_filename?: string,
   config?: PdfViewerConfig | null,
   page_rotations?: Map<number, number>
 ): Promise<void> {
-  const pdf_bytes = await save_annotations_to_pdf(pdf_url, annotations, output_filename, config, page_rotations);
-  
+  const pdf_bytes = await save_annotations_to_pdf(pdf_source, annotations, output_filename, config, page_rotations);
+
   // Generate output filename
-  const original_filename = pdf_url.split('/').pop() || 'document.pdf';
+  const original_filename = typeof pdf_source === 'string'
+    ? (pdf_source.split('/').pop() || 'document.pdf')
+    : 'document.pdf';
   const filename_without_ext = original_filename.replace(/\.pdf$/i, '');
   const final_filename = output_filename || `${filename_without_ext}_annotated.pdf`;
-  
+
   // Download the modified PDF
   download_pdf(pdf_bytes, final_filename);
   console.log('[PDF Saver] PDF saved as:', final_filename);

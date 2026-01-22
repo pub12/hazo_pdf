@@ -1,7 +1,8 @@
 /**
- * File Metadata Sidepanel Component
- * Displays flexible JSON metadata with field name/value pairs and collapsible tables
- * Matches metadata to current file by filename
+ * File Info Sidepanel Component
+ * Displays combined file information:
+ * - Extracted metadata (from LLM extraction)
+ * - File system info (from hazo_files package)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -10,21 +11,37 @@ import type { FileMetadataInput } from '../../types';
 import { cn } from '../../utils/cn';
 
 /**
- * Props for FileMetadataSidepanel component
+ * FileSystemItem interface matching hazo_files
  */
-export interface FileMetadataSidepanelProps {
+interface FileSystemItem {
+  name: string;
+  path: string;
+  is_directory: boolean;
+  size?: number;
+  modified?: Date;
+  created?: Date;
+  extension?: string;
+  mime_type?: string;
+}
+
+/**
+ * Props for FileInfoSidepanel component
+ */
+export interface FileInfoSidepanelProps {
   /** Whether the panel is open */
   is_open: boolean;
   /** Callback to toggle panel open/closed */
   on_toggle: () => void;
-  /** Array of file metadata items */
-  file_metadata: FileMetadataInput;
-  /** Current filename to match against */
-  current_filename: string;
+  /** File item to display info for */
+  item: FileSystemItem | null;
   /** Current width of the panel */
   width: number;
   /** Callback when panel width changes */
   on_width_change: (width: number) => void;
+  /** Optional file metadata (extraction data) */
+  file_metadata?: FileMetadataInput;
+  /** Current filename to match against metadata */
+  current_filename?: string;
 }
 
 /**
@@ -44,15 +61,17 @@ const is_table = (value: unknown): value is Array<Record<string, string>> => {
 };
 
 /**
- * File Metadata Sidepanel Component
+ * File Info Sidepanel Component
+ * Combines extracted metadata with file system info
  */
-export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
+export const FileInfoSidepanel: React.FC<FileInfoSidepanelProps> = ({
   is_open,
   on_toggle,
-  file_metadata,
-  current_filename,
+  item,
   width,
   on_width_change,
+  file_metadata,
+  current_filename,
 }) => {
   const [expanded_tables, setExpandedTables] = useState<Set<string>>(new Set());
   const resize_ref = useRef<HTMLDivElement>(null);
@@ -61,8 +80,9 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
   const start_x_ref = useRef(0);
 
   // Find metadata matching current filename
-  const current_metadata = file_metadata.find(
-    (item) => item.filename === current_filename
+  const filename = current_filename || item?.name || '';
+  const current_metadata = file_metadata?.find(
+    (meta) => meta.filename === filename
   );
 
   // Toggle table expanded/collapsed
@@ -120,7 +140,7 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
     };
   }, []);
 
-  // Separate fields into simple values and tables
+  // Separate extracted fields into simple values and tables
   const simple_fields: Array<[string, string]> = [];
   const table_fields: Array<[string, Array<Record<string, string>>]> = [];
 
@@ -134,6 +154,9 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
     }
   }
 
+  const has_extracted_data = simple_fields.length > 0 || table_fields.length > 0;
+  const has_file_info = item !== null;
+
   return (
     <>
       {/* Toggle button on right edge when closed */}
@@ -141,9 +164,9 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
         <button
           type="button"
           onClick={on_toggle}
-          className="cls_file_metadata_sidepanel_toggle_edge"
-          aria-label="Open file metadata panel"
-          title="Open file metadata panel"
+          className="cls_file_info_sidepanel_toggle_edge"
+          aria-label="Open file info panel"
+          title="Open file info panel"
         >
           <ChevronLeft size={20} />
         </button>
@@ -151,42 +174,41 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
 
       {/* Sidepanel */}
       <div
-        className={cn('cls_file_metadata_sidepanel', is_open && 'cls_file_metadata_sidepanel_open')}
+        className={cn('cls_file_info_sidepanel', is_open && 'cls_file_info_sidepanel_open')}
         style={{ width: is_open ? `${width}px` : '0', display: is_open ? 'flex' : 'none' }}
       >
         {/* Resize handle */}
         {is_open && (
           <div
             ref={resize_ref}
-            className="cls_file_metadata_sidepanel_resize_handle"
+            className="cls_file_info_sidepanel_resize_handle"
             onMouseDown={handle_resize_start}
             aria-label="Resize panel"
           />
         )}
 
         {/* Panel content */}
-        <div className="cls_file_metadata_sidepanel_content">
+        <div className="cls_file_info_sidepanel_content">
           {/* Header with close button */}
-          <div className="cls_file_metadata_sidepanel_header">
-            <span className="cls_file_metadata_sidepanel_title">File Metadata</span>
+          <div className="cls_file_info_sidepanel_header">
+            <span className="cls_file_info_sidepanel_title">File Info</span>
             <button
               type="button"
               onClick={on_toggle}
-              className="cls_file_metadata_sidepanel_close"
-              aria-label="Close file metadata panel"
+              className="cls_file_info_sidepanel_close"
+              aria-label="Close file info panel"
             >
               <ChevronRight size={20} />
             </button>
           </div>
 
           {/* Scrollable content area */}
-          <div className="cls_file_metadata_sidepanel_body">
-            {!current_metadata ? (
-              <div className="cls_file_metadata_no_data">
-                No metadata available for this file
-              </div>
-            ) : (
-              <>
+          <div className="cls_file_info_sidepanel_body">
+            {/* Extracted Metadata Section */}
+            {has_extracted_data && (
+              <div className="cls_file_info_extracted_section">
+                <div className="cls_file_info_section_header">Extracted Data</div>
+
                 {/* Simple field values */}
                 {simple_fields.length > 0 && (
                   <div className="cls_file_metadata_fields">
@@ -253,7 +275,36 @@ export const FileMetadataSidepanel: React.FC<FileMetadataSidepanelProps> = ({
                     </div>
                   );
                 })}
-              </>
+              </div>
+            )}
+
+            {/* Divider between sections */}
+            {has_extracted_data && has_file_info && (
+              <div className="cls_file_info_divider" />
+            )}
+
+            {/* File System Info Section */}
+            {has_file_info && item && (
+              <div className="cls_file_info_system_section">
+                <div className="cls_file_info_section_header">File</div>
+                <div className="cls_file_info_properties">
+                  <div className="cls_file_info_property">
+                    <span className="cls_file_info_property_label">Name</span>
+                    <span className="cls_file_info_property_value">{item.name}</span>
+                  </div>
+                  <div className="cls_file_info_property">
+                    <span className="cls_file_info_property_label">Path</span>
+                    <span className="cls_file_info_property_value cls_file_info_path">{item.path}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* No data message */}
+            {!has_extracted_data && !has_file_info && (
+              <div className="cls_file_info_no_data">
+                No file information available
+              </div>
             )}
           </div>
         </div>

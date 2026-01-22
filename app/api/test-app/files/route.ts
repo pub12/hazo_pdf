@@ -1,9 +1,9 @@
 /**
- * API route to list files in the test_app_directory
+ * API route to list and upload files in the test_app_directory
  * Reads config using hazo_config package
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { HazoConfig } from 'hazo_config';
@@ -78,6 +78,70 @@ export async function GET() {
     console.error('[TestAppFiles] Error listing files:', error);
     return NextResponse.json(
       { error: 'Failed to list files', message: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST handler - Upload a file to test_app_directory
+ * Accepts multipart form data with 'file' field
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const dir = get_test_app_directory();
+
+    if (!dir) {
+      return NextResponse.json(
+        { error: 'Test app is disabled or directory not configured' },
+        { status: 404 }
+      );
+    }
+
+    // Ensure directory exists
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Parse multipart form data
+    const form_data = await request.formData();
+    const file = form_data.get('file') as File | null;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Get filename - use provided name or original
+    const custom_name = form_data.get('filename') as string | null;
+    const filename = custom_name || file.name;
+
+    // Sanitize filename
+    const safe_filename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const file_path = path.join(dir, safe_filename);
+
+    // Read file data and write to disk
+    const array_buffer = await file.arrayBuffer();
+    const buffer = Buffer.from(array_buffer);
+    fs.writeFileSync(file_path, buffer);
+
+    console.log('[TestAppFiles] File uploaded:', safe_filename);
+
+    return NextResponse.json({
+      success: true,
+      file: {
+        name: safe_filename,
+        path: file_path,
+        size: buffer.length,
+        url: `/api/test-app/files/${encodeURIComponent(safe_filename)}`,
+      },
+    });
+  } catch (error) {
+    console.error('[TestAppFiles] Error uploading file:', error);
+    return NextResponse.json(
+      { error: 'Failed to upload file', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

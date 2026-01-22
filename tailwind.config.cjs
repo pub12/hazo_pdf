@@ -9,6 +9,8 @@ module.exports = {
     './src/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
+    // Include hazo_llm_api components for Tailwind class generation
+    './node_modules/hazo_llm_api/dist/**/*.js',
   ],
   theme: {
   	extend: {
@@ -64,6 +66,6 @@ module.exports = {
   		}
   	}
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 };
 

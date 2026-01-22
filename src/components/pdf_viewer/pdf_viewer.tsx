@@ -6,21 +6,22 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, RotateCw, RefreshCw, Square, Type, ExternalLink } from 'lucide-react';
+import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, RotateCw, RefreshCw, Square, Type, ExternalLink, Info, Sparkles, X } from 'lucide-react';
 import { ToolbarDropdownButton } from './toolbar_dropdown_button';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
 import { ContextMenu } from './context_menu';
 import { TextAnnotationDialog } from './text_annotation_dialog';
 import { MetadataSidepanel } from './metadata_sidepanel';
-import { FileMetadataSidepanel } from './file_metadata_sidepanel';
+import { FileInfoSidepanel } from './file_info_sidepanel';
 import type { PdfViewerProps, PdfAnnotation, CoordinateMapper, PdfViewerConfig, CustomStamp, MetadataInput, MetadataDataItem, PdfViewerRef, HighlightOptions } from '../../types';
 import { load_pdf_config, load_pdf_config_async } from '../../utils/config_loader';
 import { default_config } from '../../config/default_config';
 import { cn } from '../../utils/cn';
-import { set_logger } from '../../utils/logger';
+import { set_logger, get_logger } from '../../utils/logger';
 import { FileManager } from '../file_manager';
 import type { FileItem, PopoutContext } from '../file_manager/types';
+import { load_pdf_data, save_pdf_data } from '../../utils/file_access_middleware';
 
 // Storage key for popout context
 const POPOUT_STORAGE_KEY = 'hazo_pdf_popout';
@@ -59,6 +60,15 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   show_save_button,
   show_metadata_button,
   show_annotate_button,
+  show_file_info_button,
+  // Data extraction props
+  show_extract_button,
+  extract_prompt_area,
+  extract_prompt_key,
+  extract_api_endpoint,
+  extract_storage_type = 'local',
+  on_extract_complete,
+  on_extract_error,
   on_close,
   // Multi-file support props
   files,
@@ -72,22 +82,31 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   on_popout,
   viewer_title,
   logger,
+  // hazo_files integration props
+  file_manager,
+  save_path,
 }, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // Cached PDF data for use when saving (when loaded via file_manager)
+  const [cached_pdf_data, setCachedPdfData] = useState<ArrayBuffer | null>(null);
   const [scale, setScale] = useState(initial_scale);
   const [annotations, setAnnotations] = useState<PdfAnnotation[]>(initial_annotations);
   // Default tool is Pan (null) for scrolling the document
   const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>(null);
   const [saving, setSaving] = useState(false);
+  // Data extraction state
+  const [extracting, setExtracting] = useState(false);
+  const [extract_error, setExtractError] = useState<string | null>(null);
   // Sidepanel state (existing metadata sidepanel)
   const [sidepanel_open, setSidepanelOpen] = useState(false);
   const [sidepanel_width, setSidepanelWidth] = useState(300);
 
-  // File metadata sidepanel state (new flexible metadata)
-  const [file_metadata_sidepanel_open, setFileMetadataSidepanelOpen] = useState(false);
-  const [file_metadata_sidepanel_width, setFileMetadataSidepanelWidth] = useState(300);
+  // File info sidepanel state (combined extraction data + file system info)
+  const [file_info_sidepanel_open, setFileInfoSidepanelOpen] = useState(false);
+  const [file_info_sidepanel_width, setFileInfoSidepanelWidth] = useState(300);
+  const [hazo_files_available, setHazoFilesAvailable] = useState<boolean | null>(null);
 
   // Page rotation state
   const [page_rotations, setPageRotations] = useState<Map<number, number>>(new Map());
@@ -111,6 +130,24 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       logger.debug('Logger initialized for PdfViewer');
     }
   }, [logger]);
+
+  // Check if hazo_files package is available (for file info sidepanel)
+  useEffect(() => {
+    const check_hazo_files = async () => {
+      try {
+        const module = await import('hazo_files/ui');
+        // Check if FileInfoPanel exists as a property in the module
+        if ('FileInfoPanel' in module && typeof module.FileInfoPanel === 'function') {
+          setHazoFilesAvailable(true);
+        } else {
+          setHazoFilesAvailable(false);
+        }
+      } catch {
+        setHazoFilesAvailable(false);
+      }
+    };
+    check_hazo_files();
+  }, []);
 
   // Content container ref for fit-to-width calculations
   const content_container_ref = useRef<HTMLDivElement>(null);
@@ -596,6 +633,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       if (is_multi_file_mode) {
         setLoading(false);
         setPdfDocument(null);
+        setCachedPdfData(null);
       } else {
         console.warn('PdfViewer: No URL provided');
       }
@@ -604,34 +642,57 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
     setLoading(true);
     setError(null);
+    setCachedPdfData(null);
 
     // Use a timeout to ensure we're fully in browser context
     // This helps with React Strict Mode and SSR hydration issues
-    const load_timeout = setTimeout(() => {
-      load_pdf_document(effective_url)
-        .then((document) => {
-          setPdfDocument(document);
-          setLoading(false);
-          if (on_load) {
-            on_load(document);
-          }
-        })
-        .catch((err) => {
-          console.error('PdfViewer: Error loading PDF:', err);
-          const error_obj = err instanceof Error ? err : new Error(String(err));
-          setError(error_obj);
-          setLoading(false);
-          if (on_error) {
-            on_error(error_obj);
-          }
-        });
+    const load_timeout = setTimeout(async () => {
+      try {
+        let pdf_data: ArrayBuffer | string = effective_url;
+        const logger = get_logger();
+
+        // If file_manager is provided and initialized, use it to load the PDF
+        if (file_manager && file_manager.isInitialized()) {
+          logger.debug('[PdfViewer] Loading PDF via hazo_files file_manager');
+          const loaded_data = await load_pdf_data(effective_url, file_manager);
+          // Make a copy for caching (pdfjs may detach the original buffer)
+          const cached_copy = loaded_data.slice(0);
+          setCachedPdfData(cached_copy);
+          pdf_data = loaded_data;
+        } else {
+          // Fetch the PDF ourselves and cache the ArrayBuffer
+          // This ensures extraction uses the same data as the displayed document
+          logger.debug('[PdfViewer] Loading PDF via fetch, caching for extraction');
+          const response = await fetch(effective_url);
+          const array_buffer = await response.arrayBuffer();
+          // Make a copy for caching (pdfjs may detach the original buffer)
+          const cached_copy = array_buffer.slice(0);
+          setCachedPdfData(cached_copy);
+          pdf_data = array_buffer;
+        }
+
+        const document = await load_pdf_document(pdf_data);
+        setPdfDocument(document);
+        setLoading(false);
+        if (on_load) {
+          on_load(document);
+        }
+      } catch (err) {
+        console.error('PdfViewer: Error loading PDF:', err);
+        const error_obj = err instanceof Error ? err : new Error(String(err));
+        setError(error_obj);
+        setLoading(false);
+        if (on_error) {
+          on_error(error_obj);
+        }
+      }
     }, 0);
 
     // Cleanup: cancel loading if component unmounts
     return () => {
       clearTimeout(load_timeout);
     };
-  }, [effective_url, on_load, on_error, is_multi_file_mode]);
+  }, [effective_url, on_load, on_error, is_multi_file_mode, file_manager]);
 
   // Get first page dimensions when PDF document loads (for fit-to-width calculation)
   useEffect(() => {
@@ -945,14 +1006,14 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     setSidepanelWidth(width);
   };
 
-  // Handle file metadata sidepanel toggle
-  const handle_file_metadata_sidepanel_toggle = () => {
-    setFileMetadataSidepanelOpen((prev) => !prev);
+  // Handle file info sidepanel toggle
+  const handle_file_info_sidepanel_toggle = () => {
+    setFileInfoSidepanelOpen((prev) => !prev);
   };
 
-  // Handle file metadata sidepanel width change
-  const handle_file_metadata_sidepanel_width_change = (width: number) => {
-    setFileMetadataSidepanelWidth(width);
+  // Handle file info sidepanel width change
+  const handle_file_info_sidepanel_width_change = (width: number) => {
+    setFileInfoSidepanelWidth(width);
   };
 
   // Handle metadata change
@@ -1010,6 +1071,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
     setSaving(true);
     try {
+      const logger = get_logger();
+
       // Generate output filename (use current_file.name in multi-file mode)
       const original_filename = is_multi_file_mode && current_file
         ? current_file.name
@@ -1020,14 +1083,29 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       // Import save function to get PDF bytes
       const { save_annotations_to_pdf, download_pdf } = await import('../../utils/pdf_saver');
 
-      // Save annotations to PDF and get the modified bytes
-      const pdf_bytes = await save_annotations_to_pdf(effective_url, annotations, output_filename, config_ref.current, page_rotations);
+      // Use cached PDF data if available (loaded via file_manager), otherwise use URL
+      const pdf_source: string | ArrayBuffer = cached_pdf_data || effective_url;
+      logger.debug('[PdfViewer] Saving PDF', { source_type: cached_pdf_data ? 'cached ArrayBuffer' : 'URL' });
 
-      // If callback is provided, call it (caller handles save/download)
-      // Otherwise, download the modified PDF
+      // Save annotations to PDF and get the modified bytes
+      const pdf_bytes = await save_annotations_to_pdf(pdf_source, annotations, output_filename, config_ref.current, page_rotations);
+
+      // If file_manager and save_path are provided, save to remote storage
+      if (file_manager && save_path && file_manager.isInitialized()) {
+        logger.info('[PdfViewer] Saving PDF to remote storage via hazo_files', { path: save_path });
+        const save_result = await save_pdf_data(pdf_bytes, save_path, file_manager);
+        if (!save_result.success) {
+          throw new Error(`Failed to save to remote storage: ${save_result.error}`);
+        }
+        logger.info('[PdfViewer] PDF saved to remote storage successfully');
+      }
+
+      // Call on_save callback if provided (caller may want to handle the bytes)
+      // This still fires even after hazo_files save, for caller notification
       if (on_save) {
         on_save(pdf_bytes, output_filename);
-      } else {
+      } else if (!file_manager || !save_path) {
+        // Only download locally if not saving to remote storage
         download_pdf(pdf_bytes, output_filename);
       }
     } catch (error) {
@@ -1039,6 +1117,105 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Handle data extraction via LLM
+  const handle_extract = async () => {
+    if (!extract_api_endpoint) {
+      console.warn('PdfViewer: No extract_api_endpoint configured');
+      const error = new Error('No extract_api_endpoint configured');
+      on_extract_error?.(error);
+      return;
+    }
+
+    if (!pdf_document) {
+      console.warn('PdfViewer: No PDF document loaded for extraction');
+      const error = new Error('No PDF document loaded');
+      on_extract_error?.(error);
+      return;
+    }
+
+    if (!cached_pdf_data) {
+      console.warn('PdfViewer: No cached PDF data available for extraction');
+      const error = new Error('No cached PDF data available - please reload the document');
+      on_extract_error?.(error);
+      return;
+    }
+
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const logger = get_logger();
+
+      // Get current filename for logging and database matching
+      const current_filename = is_multi_file_mode
+        ? current_file?.name
+        : (url ? url.split('/').pop() || 'unknown' : 'unknown');
+
+      logger.info('[PdfViewer] Starting data extraction', { filename: current_filename });
+
+      // Use cached PDF data (always available since we cache during loading)
+      // This ensures we extract from the exact same document that's displayed
+      const bytes = new Uint8Array(cached_pdf_data);
+      // Convert to base64 in chunks to avoid stack overflow
+      let binary = '';
+      const chunk_size = 8192;
+      for (let i = 0; i < bytes.length; i += chunk_size) {
+        const chunk = bytes.subarray(i, i + chunk_size);
+        binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+      }
+      const pdf_base64 = btoa(binary);
+
+      logger.debug('[PdfViewer] PDF converted to base64', { size_bytes: bytes.length });
+
+      // Determine file path for hazo_files storage
+      // In multi-file mode, use current_file.url; otherwise use the url prop
+      const file_path = is_multi_file_mode ? current_file?.url : url;
+
+      logger.info('[PdfViewer] Calling extract API', { file_path });
+
+      // Call the extract API endpoint
+      const api_response = await fetch(extract_api_endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_b64: pdf_base64,
+          document_mime_type: 'application/pdf',
+          prompt_area: extract_prompt_area,
+          prompt_key: extract_prompt_key,
+          // Include file_path, filename, and storage_type for hazo_files integration
+          file_path: file_path,
+          filename: current_filename,
+          storage_type: extract_storage_type,
+        }),
+      });
+
+      if (!api_response.ok) {
+        const error_text = await api_response.text();
+        throw new Error(`Extract API error: ${api_response.status} - ${error_text}`);
+      }
+
+      const result = await api_response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown extraction error');
+      }
+
+      logger.info('[PdfViewer] Extraction completed successfully');
+
+      // Call the success callback with extracted data
+      on_extract_complete?.(result.data);
+
+    } catch (error) {
+      console.error('PdfViewer: Error extracting data:', error);
+      const error_obj = error instanceof Error ? error : new Error(String(error));
+      setExtractError(error_obj.message);
+      on_extract_error?.(error_obj);
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -1104,6 +1281,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     toolbar_show_save_button: show_save_button ?? base_toolbar_config.toolbar_show_save_button,
     toolbar_show_metadata_button: show_metadata_button ?? base_toolbar_config.toolbar_show_metadata_button,
     toolbar_show_annotate_button: show_annotate_button ?? base_toolbar_config.toolbar_show_annotate_button,
+    toolbar_show_file_info_button: show_file_info_button ?? base_toolbar_config.toolbar_show_file_info_button,
+    toolbar_show_extract_button: show_extract_button ?? base_toolbar_config.toolbar_show_extract_button,
     toolbar_show_rotation_controls: base_toolbar_config.toolbar_show_rotation_controls ?? true,
   };
 
@@ -1411,6 +1590,38 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           </div>
         )}
 
+        {/* Extract Data Button */}
+        {toolbar_config.toolbar_show_extract_button && extract_api_endpoint && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_extract}
+              disabled={extracting || !pdf_document}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                (extracting || !pdf_document) && 'cls_pdf_viewer_toolbar_button_disabled'
+              )}
+              aria-label="Extract data"
+              title={extracting ? 'Extracting...' : 'Extract data from PDF'}
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+                opacity: (extracting || !pdf_document) ? toolbar_config.toolbar_button_disabled_opacity : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!(extracting || !pdf_document)) {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              <Sparkles className={cn('cls_pdf_viewer_toolbar_icon', extracting && 'animate-spin')} size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Sidepanel toggle button (original metadata) */}
         {sidepanel_metadata_enabled && metadata_input && toolbar_config.toolbar_show_metadata_button && (
           <div className="cls_pdf_viewer_toolbar_group">
@@ -1447,38 +1658,38 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           </div>
         )}
 
-        {/* File metadata sidepanel toggle button */}
-        {file_metadata && file_metadata.length > 0 && (
+        {/* File Info sidepanel toggle button (shown when file_metadata or hazo_files is available) */}
+        {((file_metadata && file_metadata.length > 0) || hazo_files_available) && toolbar_config.toolbar_show_file_info_button && (
           <div className="cls_pdf_viewer_toolbar_group">
             <button
               type="button"
-              onClick={handle_file_metadata_sidepanel_toggle}
+              onClick={handle_file_info_sidepanel_toggle}
               className={cn(
                 'cls_pdf_viewer_toolbar_button',
-                file_metadata_sidepanel_open && 'cls_pdf_viewer_toolbar_button_active'
+                file_info_sidepanel_open && 'cls_pdf_viewer_toolbar_button_active'
               )}
-              aria-label="Toggle file metadata panel"
-              title="Toggle file metadata panel"
+              aria-label="Toggle file info panel"
+              title="Toggle file info panel"
               style={{
-                backgroundColor: file_metadata_sidepanel_open
+                backgroundColor: file_info_sidepanel_open
                   ? toolbar_config.toolbar_button_active_background_color
                   : toolbar_config.toolbar_button_background_color,
-                color: file_metadata_sidepanel_open
+                color: file_info_sidepanel_open
                   ? toolbar_config.toolbar_button_active_text_color
                   : toolbar_config.toolbar_button_text_color,
               }}
               onMouseEnter={(e) => {
-                if (!file_metadata_sidepanel_open) {
+                if (!file_info_sidepanel_open) {
                   e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = file_metadata_sidepanel_open
+                e.currentTarget.style.backgroundColor = file_info_sidepanel_open
                   ? toolbar_config.toolbar_button_active_background_color
                   : toolbar_config.toolbar_button_background_color;
               }}
             >
-              <PanelRight className="cls_pdf_viewer_toolbar_icon" size={16} />
+              <Info className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
           </div>
         )}
@@ -1536,12 +1747,12 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
       {/* PDF Viewer Layout with Sidepanel */}
       {(() => {
-        const any_sidepanel_open = sidepanel_open || file_metadata_sidepanel_open;
-        const total_sidepanel_width = (sidepanel_open ? sidepanel_width : 0) + (file_metadata_sidepanel_open ? file_metadata_sidepanel_width : 0);
+        const any_sidepanel_open = sidepanel_open || file_info_sidepanel_open;
+        const total_sidepanel_width = (sidepanel_open ? sidepanel_width : 0) + (file_info_sidepanel_open ? file_info_sidepanel_width : 0);
         // Check if any sidepanel is available (has content)
         const has_metadata_sidepanel = sidepanel_metadata_enabled && metadata_input;
-        const has_file_metadata_sidepanel = file_metadata && file_metadata.length > 0;
-        const any_sidepanel_available = has_metadata_sidepanel || has_file_metadata_sidepanel;
+        const has_file_info_sidepanel = ((file_metadata && file_metadata.length > 0) || hazo_files_available) && toolbar_config.toolbar_show_file_info_button;
+        const any_sidepanel_available = has_metadata_sidepanel || has_file_info_sidepanel;
         return (
       <div className={cn('cls_pdf_viewer_content_wrapper', any_sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
         {/* Floating metadata expand button at top-right of PDF content */}
@@ -1550,8 +1761,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             type="button"
             onClick={() => {
               // Open the first available sidepanel
-              if (has_file_metadata_sidepanel) {
-                handle_file_metadata_sidepanel_toggle();
+              if (has_file_info_sidepanel) {
+                handle_file_info_sidepanel_toggle();
               } else if (has_metadata_sidepanel) {
                 handle_sidepanel_toggle();
               }
@@ -1645,15 +1856,28 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           />
         )}
 
-        {/* File Metadata Sidepanel (flexible JSON metadata) */}
-        {file_metadata && file_metadata.length > 0 && (
-          <FileMetadataSidepanel
-            is_open={file_metadata_sidepanel_open}
-            on_toggle={handle_file_metadata_sidepanel_toggle}
+        {/* File Info Sidepanel (combined extraction data + file system info) */}
+        {((file_metadata && file_metadata.length > 0) || hazo_files_available) && (
+          <FileInfoSidepanel
+            is_open={file_info_sidepanel_open}
+            on_toggle={handle_file_info_sidepanel_toggle}
+            item={(() => {
+              // Create FileSystemItem from current PDF
+              const filename = current_file?.name || (url ? url.split('/').pop() || '' : '');
+              const filepath = effective_url || '';
+              if (!filename) return null;
+              return {
+                name: filename,
+                path: filepath,
+                is_directory: false,
+                extension: filename.includes('.') ? filename.split('.').pop() : undefined,
+                mime_type: 'application/pdf',
+              };
+            })()}
+            width={file_info_sidepanel_width}
+            on_width_change={handle_file_info_sidepanel_width_change}
             file_metadata={file_metadata}
             current_filename={current_file?.name || (url ? url.split('/').pop() || '' : '')}
-            width={file_metadata_sidepanel_width}
-            on_width_change={handle_file_metadata_sidepanel_width_change}
           />
         )}
       </div>
@@ -1855,6 +2079,37 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             setTextDialog(null);
           }}
         />
+      )}
+
+      {/* Extract Error Dialog */}
+      {extract_error && (
+        <div className="cls_pdf_viewer_error_dialog_overlay">
+          <div className="cls_pdf_viewer_error_dialog">
+            <div className="cls_pdf_viewer_error_dialog_header">
+              <span className="cls_pdf_viewer_error_dialog_title">Extraction Error</span>
+              <button
+                type="button"
+                onClick={() => setExtractError(null)}
+                className="cls_pdf_viewer_error_dialog_close"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="cls_pdf_viewer_error_dialog_content">
+              {extract_error}
+            </div>
+            <div className="cls_pdf_viewer_error_dialog_footer">
+              <button
+                type="button"
+                onClick={() => setExtractError(null)}
+                className="cls_pdf_viewer_error_dialog_button"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -18,6 +18,9 @@ import type { FileItem, UploadResult, FileManagerDisplayMode, PopoutContext } fr
 // Re-export file manager types
 export type { FileItem, UploadResult, FileManagerDisplayMode, PopoutContext };
 
+// Export file access types for hazo_files integration
+export type * from './file_access';
+
 /**
  * Props for the main PdfViewer component
  */
@@ -113,6 +116,32 @@ export interface PdfViewerProps {
   /** Whether to show annotate (FreeText) button (default: true) */
   show_annotate_button?: boolean;
 
+  /** Whether to show file info button (default: true) */
+  show_file_info_button?: boolean;
+
+  // --- Data Extraction props ---
+
+  /** Whether to show the extract button (overrides config) */
+  show_extract_button?: boolean;
+
+  /** Prompt area for extraction (e.g., "document") */
+  extract_prompt_area?: string;
+
+  /** Prompt key for extraction (e.g., "initial_classification") */
+  extract_prompt_key?: string;
+
+  /** API endpoint for server-side extraction */
+  extract_api_endpoint?: string;
+
+  /** Storage type for hazo_files integration ('local' or 'google_drive', default: 'local') */
+  extract_storage_type?: 'local' | 'google_drive';
+
+  /** Callback when extraction completes (data + save to hazo_files) */
+  on_extract_complete?: (data: Record<string, unknown>) => void;
+
+  /** Callback when extraction fails */
+  on_extract_error?: (error: Error) => void;
+
   /** Callback when close button is clicked (shows close button in toolbar when provided) */
   on_close?: () => void;
 
@@ -150,6 +179,14 @@ export interface PdfViewerProps {
 
   /** Logger instance for logging (from hazo_logs or compatible) */
   logger?: Logger;
+
+  // --- hazo_files integration props ---
+
+  /** File access provider from hazo_files for loading/saving PDFs via remote storage */
+  file_manager?: import('./file_access').FileAccessProvider;
+
+  /** Remote path for saving PDF via hazo_files (used with file_manager) */
+  save_path?: string;
 }
 
 /**

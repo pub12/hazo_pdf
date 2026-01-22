@@ -105,6 +105,8 @@ export const default_config: PdfViewerConfig = {
     toolbar_show_save_button: true,
     toolbar_show_metadata_button: true,
     toolbar_show_annotate_button: true,
+    toolbar_show_file_info_button: true,
+    toolbar_show_extract_button: true,
     toolbar_zoom_out_label: '−',
     toolbar_zoom_in_label: '+',
     toolbar_zoom_reset_label: 'Reset',

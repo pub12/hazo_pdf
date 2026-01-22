@@ -35,12 +35,16 @@
     "dist"
   ],
   "peerDependencies": {
+    "hazo_files": "^1.2.0",
+    "hazo_logs": "^1.0.0",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "hazo_logs": "^1.0.0"
+    "react-dom": "^18.0.0"
   },
   "peerDependenciesMeta": {
     "hazo_logs": {
+      "optional": true
+    },
+    "hazo_files": {
       "optional": true
     }
   },
@@ -52,6 +56,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "hazo_config": "^1.3.0",
+    "hazo_connect": "^2.4.2",
     "lucide-react": "^0.344.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
@@ -61,6 +66,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@storybook/addon-essentials": "^7.6.17",
     "@storybook/addon-interactions": "^7.6.17",
     "@storybook/addon-links": "^7.6.17",
@@ -71,6 +79,7 @@
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
+    "@types/sql.js": "^1.4.9",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "autoprefixer": "^10.4.17",
@@ -78,13 +87,17 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "hazo_files": "^1.3.0",
+    "hazo_llm_api": "^1.1.8",
     "hazo_logs": "^1.0.0",
     "next": "^16.0.3",
+    "patch-package": "^8.0.1",
     "postcss": "^8.4.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "storybook": "^7.6.17",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "tsup": "^8.0.2",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
@@ -97,7 +110,7 @@
     "prepublishOnly": "npm run build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "dev:test-app": "concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
+    "dev:test-app": "tsup && concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
     "test-app:build": "next build",
     "test-app:start": "next start"
   }

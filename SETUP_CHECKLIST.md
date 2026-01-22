@@ -41,6 +41,22 @@ yarn add hazo_logs
 
 Note: hazo_logs is an optional peer dependency. If not installed, hazo_pdf will use console-based logging.
 
+#### Optional: Install hazo_files for Remote Storage
+
+For remote file storage integration (Google Drive, Dropbox, local filesystem), optionally install hazo_files:
+
+```bash
+npm install hazo_files
+```
+
+Or with yarn:
+
+```bash
+yarn add hazo_files
+```
+
+Note: hazo_files is an optional peer dependency. When installed, it enables loading and saving PDFs from remote storage providers.
+
 ### 2. Import Styles
 
 Choose the appropriate CSS file based on your application setup:
@@ -368,6 +384,105 @@ const custom_stamps = JSON.stringify([
 <PdfViewer
   url="/document.pdf"
   right_click_custom_stamps={custom_stamps}
+/>
+```
+
+### Enable Multi-File Support (Optional)
+
+Manage and view multiple PDF files:
+
+```tsx
+import type { FileItem, UploadResult } from 'hazo_pdf';
+
+const [files, setFiles] = useState<FileItem[]>([]);
+
+const handle_upload = async (file: File, converted_pdf?: Uint8Array): Promise<UploadResult> => {
+  // Upload to server
+  const formData = new FormData();
+  formData.append('file', converted_pdf || file);
+
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData
+  });
+
+  const result = await response.json();
+
+  return result.success
+    ? { success: true, file_id: result.file_id, url: result.url }
+    : { success: false, error: result.error };
+};
+
+<PdfViewer
+  files={files}
+  on_files_change={setFiles}
+  on_upload={handle_upload}
+/>
+```
+
+### Enable hazo_files Integration (Optional)
+
+Load and save PDFs from remote storage:
+
+```tsx
+import { FileManager } from 'hazo_files';
+
+// Initialize FileManager
+const file_manager = new FileManager({
+  storage_type: 'google_drive',
+  config_file: 'config/hazo_files_config.ini'
+});
+
+await file_manager.initialize();
+
+<PdfViewer
+  url="/remote/path/document.pdf"
+  file_manager={file_manager}
+  save_path="/remote/path/document.pdf"
+/>
+```
+
+### Enable Data Extraction (Optional)
+
+Extract structured data using LLM prompts:
+
+```tsx
+<PdfViewer
+  url="/invoice.pdf"
+  show_extract_button={true}
+  extract_prompt_area="invoices"
+  extract_prompt_key="extract_invoice_data"
+  extract_api_endpoint="/api/extract"
+  on_extract_complete={(data) => console.log('Extracted:', data)}
+  on_extract_error={(error) => console.error('Error:', error)}
+/>
+```
+
+### Enable File Info Sidepanel (Optional)
+
+Display extracted metadata and file information:
+
+```tsx
+import type { FileMetadataInput } from 'hazo_pdf';
+
+const file_metadata: FileMetadataInput = [
+  {
+    filename: 'invoice.pdf',
+    file_data: {
+      invoice_number: 'INV-2024-001',
+      total_amount: '$1,250.00',
+      line_items: [
+        { item: 'Widget A', quantity: '10', price: '$50.00' },
+        { item: 'Widget B', quantity: '15', price: '$50.00' }
+      ]
+    }
+  }
+];
+
+<PdfViewer
+  url="/invoice.pdf"
+  file_metadata={file_metadata}
+  show_file_info_button={true}
 />
 ```
 

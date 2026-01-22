@@ -306,6 +306,50 @@
   @apply text-red-500;
 }
 
+/* Error Dialog (for extraction errors, etc.) */
+.cls_pdf_viewer_error_dialog_overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.cls_pdf_viewer_error_dialog {
+  @apply bg-white rounded-lg shadow-xl max-w-md w-full mx-4;
+  border: 1px solid #e5e7eb !important;
+}
+
+.cls_pdf_viewer_error_dialog_header {
+  @apply flex items-center justify-between px-4 py-3;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.cls_pdf_viewer_error_dialog_title {
+  @apply font-semibold text-red-600;
+}
+
+.cls_pdf_viewer_error_dialog_close {
+  @apply p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700;
+  background: transparent;
+  border: none !important;
+  cursor: pointer;
+}
+
+.cls_pdf_viewer_error_dialog_content {
+  @apply px-4 py-4 text-sm text-gray-700;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cls_pdf_viewer_error_dialog_footer {
+  @apply flex justify-end px-4 py-3;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.cls_pdf_viewer_error_dialog_button {
+  @apply px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700;
+  border: none !important;
+  cursor: pointer;
+}
+
 .cls_pdf_viewer_no_document {
   @apply text-gray-500 text-center p-8;
 }
@@ -629,51 +673,65 @@
   @apply text-gray-500 text-sm italic;
 }
 
-/* File Metadata Fields */
+/* File Metadata Fields (inline layout) */
 .cls_file_metadata_fields {
-  @apply mb-4;
+  @apply mb-3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .cls_file_metadata_field {
-  @apply flex flex-col gap-1 mb-3 pb-3 border-b border-gray-100;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
 }
 
 .cls_file_metadata_field:last-child {
-  @apply border-b-0 mb-0 pb-0;
+  /* No special styling needed */
 }
 
 .cls_file_metadata_field_label {
-  @apply text-xs font-semibold text-gray-500 uppercase tracking-wide;
+  @apply text-[11px] font-medium text-gray-400 uppercase tracking-wide;
+  min-width: 100px;
+  flex-shrink: 0;
 }
 
 .cls_file_metadata_field_value {
-  @apply text-sm text-gray-900;
+  @apply text-sm text-gray-800 font-medium;
   word-break: break-word;
+  flex: 1;
 }
 
 /* File Metadata Table Sections */
 .cls_file_metadata_table_section {
-  @apply mb-3 border border-gray-200 rounded;
+  @apply mb-2 rounded-lg;
+  border: 1px solid #e2e8f0 !important;
+  overflow: hidden;
 }
 
 .cls_file_metadata_table_header {
-  @apply w-full flex items-center justify-between p-3 text-left;
-  @apply hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply w-full flex items-center p-2.5 text-left;
+  @apply hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
   @apply transition-colors;
-  background: #f9fafb;
+  background: white;
+  gap: 0.5rem;
 }
 
 .cls_file_metadata_table_name {
-  @apply font-semibold text-sm;
+  @apply font-medium text-sm text-gray-700;
+  flex: 1;
 }
 
 .cls_file_metadata_table_count {
-  @apply text-xs text-gray-500 ml-2;
+  @apply text-[11px] text-gray-400;
 }
 
 .cls_file_metadata_table_icon {
-  @apply flex-shrink-0 ml-2;
-  color: #6b7280;
+  @apply flex-shrink-0;
+  color: #9ca3af;
 }
 
 .cls_file_metadata_table_content {
@@ -738,6 +796,131 @@
   word-break: break-word;
 }
 
+/* =============================================================================
+   File Info Sidepanel (hazo_files integration)
+   ============================================================================= */
+.cls_file_info_sidepanel {
+  @apply flex flex-row;
+  position: relative;
+  background: white;
+  border-left: 1px solid #e5e7eb;
+  overflow: hidden;
+  transition: width 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.cls_file_info_sidepanel_open {
+  display: flex;
+}
+
+.cls_file_info_sidepanel_resize_handle {
+  @apply cursor-ew-resize;
+  width: 4px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.cls_file_info_sidepanel_resize_handle:hover {
+  background: #d1d5db;
+}
+
+.cls_file_info_sidepanel_resize_handle:active {
+  background: #9ca3af;
+}
+
+.cls_file_info_sidepanel_toggle_edge {
+  @apply absolute right-0 top-1/2 -translate-y-1/2 z-50;
+  @apply bg-white border border-gray-300 rounded-l-lg shadow-lg;
+  @apply p-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  transition: all 0.2s ease-in-out;
+}
+
+.cls_file_info_sidepanel_content {
+  @apply flex flex-col w-full h-full;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cls_file_info_sidepanel_header {
+  @apply flex items-center justify-between p-4 border-b bg-gray-50;
+  flex-shrink: 0;
+}
+
+.cls_file_info_sidepanel_title {
+  @apply text-lg font-semibold;
+}
+
+.cls_file_info_sidepanel_close {
+  @apply p-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.cls_file_info_sidepanel_body {
+  @apply flex-1 overflow-y-auto;
+  padding: 1rem;
+  min-height: 0;
+}
+
+.cls_file_info_no_data {
+  @apply text-gray-500 text-sm italic;
+}
+
+/* Section headers and divider for combined panel */
+.cls_file_info_section_header {
+  @apply text-[11px] font-semibold text-gray-400 uppercase tracking-wider;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.cls_file_info_extracted_section {
+  @apply mb-0 pb-4;
+  background: #fafbfc;
+  margin: -1rem -1rem 0 -1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.cls_file_info_system_section {
+  @apply pt-3;
+}
+
+.cls_file_info_divider {
+  display: none;
+}
+
+/* File Properties (inline Name/Path display) */
+.cls_file_info_properties {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cls_file_info_property {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.cls_file_info_property_label {
+  @apply text-[11px] font-medium text-gray-400 uppercase tracking-wide;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.cls_file_info_property_value {
+  @apply text-sm text-gray-700;
+  word-break: break-word;
+  flex: 1;
+}
+
+.cls_file_info_path {
+  @apply text-xs font-mono text-gray-500;
+  line-height: 1.4;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .cls_pdf_viewer_content_wrapper {
@@ -776,10 +959,16 @@
   .cls_metadata_sidepanel {
     max-width: 50%;
   }
+  .cls_file_info_sidepanel {
+    max-width: 50%;
+  }
 }
 
 @media (min-width: 1025px) {
   .cls_metadata_sidepanel {
+    max-width: 800px;
+  }
+  .cls_file_info_sidepanel {
     max-width: 800px;
   }
 }
