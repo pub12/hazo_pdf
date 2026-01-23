@@ -5,14 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { create_direct_db_connect, get_database, initialize_llm_api } from 'hazo_llm_api/server';
+import { createLogger } from 'hazo_logs';
 
-// Simple console logger for the test app
-const logger = {
-  error: console.error,
-  info: console.log,
-  warn: console.warn,
-  debug: console.debug,
-};
+// Create shared logger that writes to hazo_logs
+const logger = createLogger('hazo_llm_api');
 
 // Track initialization state
 let initialized = false;
