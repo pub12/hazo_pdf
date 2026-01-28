@@ -198,6 +198,15 @@ export default function ViewerPage() {
                 metadata_input={metadata}
                 on_metadata_change={handle_metadata_change}
                 file_metadata={test_file_metadata}
+                extract_api_endpoint="/api/extract"
+                extract_prompt_area="document"
+                extract_prompt_key="initial_classification"
+                on_extract_complete={(data) => {
+                  console.log('[ViewerPage] Extraction complete:', data);
+                }}
+                on_extract_error={(error) => {
+                  console.error('[ViewerPage] Extraction error:', error);
+                }}
               />
             </Suspense>
           ) : (

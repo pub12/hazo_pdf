@@ -28,14 +28,22 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./server": {
+      "import": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    },
     "./styles.css": "./dist/styles/index.css",
     "./styles-full.css": "./dist/styles/full.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "config/hazo_pdf_config.ini",
+    "LICENSE",
+    "README.md"
   ],
   "peerDependencies": {
     "hazo_files": "^1.2.0",
+    "hazo_llm_api": "^1.2.0",
     "hazo_logs": "^1.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
@@ -45,6 +53,9 @@
       "optional": true
     },
     "hazo_files": {
+      "optional": true
+    },
+    "hazo_llm_api": {
       "optional": true
     }
   },
@@ -88,7 +99,7 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "hazo_files": "^1.3.0",
-    "hazo_llm_api": "^1.2.0",
+    "hazo_llm_api": "^1.2.3",
     "hazo_logs": "^1.0.0",
     "next": "^16.0.3",
     "patch-package": "^8.0.1",

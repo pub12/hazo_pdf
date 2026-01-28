@@ -20,6 +20,8 @@ export interface FileItem {
   type: 'pdf' | 'image' | 'text' | 'other';
   /** Original MIME type */
   mime_type?: string;
+  /** Actual filesystem path (for server-side operations like extraction) */
+  file_path?: string;
   /** File size in bytes */
   size?: number;
   /** Thumbnail URL (optional, for preview) */

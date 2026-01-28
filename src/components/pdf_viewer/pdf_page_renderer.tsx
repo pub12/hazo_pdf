@@ -162,10 +162,20 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
       // Scale the context to match device pixel ratio
       context.scale(output_scale, output_scale);
 
+      // Fill canvas with white background before rendering
+      // This ensures any transparent areas in the PDF appear white
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, viewport.width, viewport.height);
+
       // Render the page
+      // Note: annotationMode: 0 disables annotation rendering on the canvas
+      // This prevents form fields and other annotations from being drawn with incorrect fills
+      // Our custom annotation overlay handles annotation display separately
       const render_context = {
         canvasContext: context,
         viewport: viewport,
+        annotationMode: 0, // DISABLE - don't render annotations on canvas
+        background: 'white', // Explicitly set white background for pdfjs rendering
       };
 
       const render_task = page.render(render_context);
@@ -223,7 +233,6 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
         position: 'relative',
         width: viewport_dimensions.width,
         height: viewport_dimensions.height,
-        margin: '0 auto',
         border: `1px solid ${page_config.page_border_color}`,
         boxShadow: page_config.page_box_shadow,
         backgroundColor: page_config.page_background_color,
@@ -237,8 +246,8 @@ export const PdfPageRenderer: React.FC<PdfPageRendererProps> = ({
         className="cls_pdf_page_canvas"
         style={{
           display: 'block',
-          width: '100%',
-          height: '100%',
+          width: viewport_dimensions.width,
+          height: viewport_dimensions.height,
           pointerEvents: 'none', // Allow events to pass through to SVG overlay
         }}
         aria-label={`PDF page ${page_index + 1}`}

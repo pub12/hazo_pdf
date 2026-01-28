@@ -5,6 +5,7 @@
 
 // Main component exports
 export { PdfViewer } from './components/pdf_viewer/pdf_viewer';
+export { PdfViewerDialog } from './components/pdf_viewer/pdf_viewer_dialog';
 export { PdfViewerLayout } from './components/pdf_viewer/pdf_viewer_layout';
 export { PdfPageRenderer } from './components/pdf_viewer/pdf_page_renderer';
 export { AnnotationOverlay } from './components/pdf_viewer/annotation_overlay';

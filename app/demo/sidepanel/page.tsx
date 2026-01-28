@@ -125,6 +125,15 @@ function App() {
                   show_undo_button={true}
                   show_redo_button={true}
                   show_save_button={false}
+                  extract_api_endpoint="/api/extract"
+                  extract_prompt_area="document"
+                  extract_prompt_key="initial_classification"
+                  on_extract_complete={(data) => {
+                    console.log('[SidepanelDemo] Extraction complete:', data);
+                  }}
+                  on_extract_error={(error) => {
+                    console.error('[SidepanelDemo] Extraction error:', error);
+                  }}
                 />
               </Suspense>
             </div>

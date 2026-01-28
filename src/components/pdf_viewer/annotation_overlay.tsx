@@ -700,6 +700,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             border_color?: string;
             background_color?: string;
             background_opacity?: number;
+            border_width?: number;
           } | null = null;
 
           if (annotation.subject) {
@@ -718,10 +719,12 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             highlight_config.highlight_fill_opacity;
           const highlight_border_color = custom_highlight_options?.border_color ||
             highlight_config.highlight_border_color;
+          const highlight_border_width = custom_highlight_options?.border_width ?? 2;
 
           return {
             fill: hex_to_rgba(highlight_fill_color, highlight_fill_opacity),
             stroke: highlight_border_color,
+            strokeWidth: highlight_border_width,
           };
         }
         case 'Square': {
@@ -730,17 +733,19 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
           return {
             fill: hex_to_rgba(square_color, square_config.square_fill_opacity),
             stroke: square_config.square_border_color,
+            strokeWidth: 2,
           };
         }
         default:
           return {
             fill: 'rgba(0, 0, 255, 0.2)',
             stroke: '#0000FF',
+            strokeWidth: 2,
           };
       }
     };
 
-    const { fill, stroke } = get_annotation_props();
+    const { fill, stroke, strokeWidth } = get_annotation_props();
 
     return (
       <g key={annotation.id}>
@@ -803,7 +808,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
           width={screen_width}
           height={screen_height}
           stroke={stroke}
-          strokeWidth="2"
+          strokeWidth={strokeWidth}
           fill={fill}
           pointerEvents="none"
         />

@@ -18,6 +18,8 @@ A React component library for viewing and annotating PDF documents with support 
 - 📊 **Data Extraction** - Extract structured data from PDFs using LLM prompts (via hazo_llm_api)
 - 📁 **File Info Sidepanel** - Display extracted metadata and file system information
 - ☁️ **Remote Storage** - Load and save PDFs from Google Drive, Dropbox, or local storage (via hazo_files)
+- 🖼️ **Dialog Component** - Ready-to-use modal dialog wrapper (`PdfViewerDialog`)
+- 🔧 **Server Utilities** - Server-side extraction utilities via `hazo_pdf/server` entry point
 
 ## Installation
 
@@ -42,6 +44,14 @@ npm install hazo_files
 ```
 
 The `hazo_files` package is an optional peer dependency. When installed, it enables loading and saving PDFs from remote storage providers. See [hazo_files Integration](#hazo_files-integration) for details.
+
+**hazo_llm_api** (optional): For server-side document extraction
+
+```bash
+npm install hazo_llm_api
+```
+
+The `hazo_llm_api` package is an optional peer dependency. When installed, it enables server-side document data extraction via the `hazo_pdf/server` entry point. See [Server-Side Extraction](#server-side-extraction) for details.
 
 ## CSS Import Options
 
@@ -100,6 +110,39 @@ function App() {
 ```
 
 That's it! The PDF viewer will load and display your document with default styling and pan mode enabled.
+
+### PdfViewerDialog (Modal/Dialog)
+
+For displaying PDFs in a modal dialog, use the `PdfViewerDialog` component:
+
+```tsx
+import { useState } from 'react';
+import { PdfViewerDialog } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function App() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>Open PDF</button>
+      <PdfViewerDialog
+        open={isOpen}
+        on_open_change={setIsOpen}
+        url="/path/to/document.pdf"
+        dialog_width="90vw"
+        dialog_height="90vh"
+      />
+    </>
+  );
+}
+```
+
+The dialog component handles:
+- Backdrop click to close (configurable)
+- Escape key to close (configurable)
+- Body scroll prevention
+- Focus trapping
 
 ### With Logging (Optional)
 
@@ -841,6 +884,53 @@ Props to control toolbar button visibility. These override config file values.
 />
 ```
 
+### PdfViewerDialog Props
+
+Extends all `PdfViewerProps` (except `on_close`) plus dialog-specific options:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `open` | `boolean` | Required | Whether the dialog is open |
+| `on_open_change` | `(open: boolean) => void` | Required | Callback when open state should change |
+| `dialog_width` | `string` | `"90vw"` | Dialog width (CSS value) |
+| `dialog_height` | `string` | `"90vh"` | Dialog height (CSS value) |
+| `close_on_backdrop_click` | `boolean` | `true` | Close dialog when clicking backdrop |
+| `close_on_escape` | `boolean` | `true` | Close dialog when pressing Escape key |
+| `loading_fallback` | `React.ReactNode` | `undefined` | Custom loading fallback content |
+| `dialog_class_name` | `string` | `undefined` | Additional classes for dialog container |
+| `backdrop_class_name` | `string` | `undefined` | Additional classes for backdrop overlay |
+
+**Example:**
+
+```tsx
+import { useState } from 'react';
+import { PdfViewerDialog } from 'hazo_pdf';
+
+function App() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>Open PDF</button>
+      <PdfViewerDialog
+        open={isOpen}
+        on_open_change={setIsOpen}
+        url="/document.pdf"
+        dialog_width="80vw"
+        dialog_height="80vh"
+        close_on_backdrop_click={true}
+        close_on_escape={true}
+        // All PdfViewer props also work
+        on_load={(pdf) => console.log('Loaded', pdf.numPages, 'pages')}
+        on_annotation_create={(ann) => console.log('Created', ann)}
+      />
+    </>
+  );
+}
+```
+
+---
+
 ### PdfAnnotation Interface
 
 Represents a PDF annotation in the standard PDF coordinate space.
@@ -891,6 +981,7 @@ interface HighlightOptions {
   border_color?: string;       // Hex format (e.g., "#FF0000")
   background_color?: string;   // Hex format (e.g., "#FFFF00")
   background_opacity?: number; // 0-1 (e.g., 0.4)
+  border_width?: number;       // Border width in pixels (default: 2)
 }
 ```
 
@@ -1826,6 +1917,90 @@ const handle_save = async (pdf_bytes: Uint8Array, filename: string) => {
   on_save={handle_save}
 />
 ```
+
+---
+
+## Server-Side Extraction
+
+For server-side document extraction (e.g., in Next.js API routes), use the `hazo_pdf/server` entry point:
+
+### Basic Server-Side Extraction
+
+```typescript
+// app/api/extract/route.ts (Next.js App Router example)
+import { extract_document_data } from 'hazo_pdf/server';
+
+export async function POST(request: Request) {
+  const { file_path, prompt_area, prompt_key } = await request.json();
+
+  const result = await extract_document_data(
+    { file_path },
+    {
+      prompt_area,
+      prompt_key,
+      save_to_hazo_files: true,
+      storage_type: 'local',
+    }
+  );
+
+  if (!result.success) {
+    return Response.json({ error: result.error }, { status: 500 });
+  }
+
+  return Response.json({
+    data: result.data,
+    extraction_id: result.extraction_id,
+  });
+}
+```
+
+### Source Options
+
+The `extract_document_data` function accepts different source types:
+
+```typescript
+// By file path
+await extract_document_data({ file_path: '/path/to/document.pdf' }, options);
+
+// By hazo_files file ID
+await extract_document_data({ file_id: 'file-uuid-here' }, options);
+```
+
+### Extraction Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `prompt_area` | `string` | Required | Prompt area for lookup (e.g., "document", "invoices") |
+| `prompt_key` | `string` | Required | Prompt key for lookup (e.g., "initial_classification") |
+| `logger` | `Logger` | `undefined` | Optional logger instance for structured logging |
+| `storage_type` | `'local' \| 'google_drive'` | `'local'` | Storage type for hazo_files integration |
+| `save_to_hazo_files` | `boolean` | `true` | Whether to save extraction to hazo_files database |
+| `filename` | `string` | `undefined` | Optional filename for database record |
+| `mime_type` | `string` | `'application/pdf'` | MIME type for the document |
+| `original_file_path` | `string` | `undefined` | Original file path (when using temp files) |
+
+### Result Structure
+
+```typescript
+interface ExtractDocumentResult {
+  success: boolean;
+  data?: Record<string, unknown>;    // Extracted data
+  error?: string;                     // Error message if failed
+  extraction_id?: string;             // hazo_files extraction record ID
+  file_id?: string;                   // hazo_files file record ID
+  file_path?: string;                 // File path used
+  successful_steps?: number;          // Number of successful extraction steps
+  total_steps?: number;               // Total extraction steps attempted
+  stop_reason?: string;               // Why extraction stopped
+}
+```
+
+### Important Notes
+
+- The `hazo_pdf/server` module is **server-only** and cannot be imported in browser code
+- Requires `hazo_llm_api` package to be installed
+- Prompts must be configured in the hazo_llm_api prompt library
+- Extraction follows prompt chains automatically (via `next_prompt` field in prompts)
 
 ---
 

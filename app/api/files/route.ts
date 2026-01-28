@@ -12,12 +12,12 @@ import { FileMetadataRecord } from 'hazo_files';
  */
 function serialize_record(record: FileMetadataRecord): Record<string, unknown> {
   // Parse file_data if it's a string
-  let file_data = record.file_data;
-  if (typeof file_data === 'string') {
+  let parsed_file_data: Record<string, unknown> | string = record.file_data;
+  if (typeof record.file_data === 'string') {
     try {
-      file_data = JSON.parse(file_data);
+      parsed_file_data = JSON.parse(record.file_data);
     } catch {
-      file_data = {};
+      parsed_file_data = {};
     }
   }
 
@@ -25,7 +25,7 @@ function serialize_record(record: FileMetadataRecord): Record<string, unknown> {
     id: record.id,
     filename: record.filename,
     file_type: record.file_type,
-    file_data: file_data,
+    file_data: parsed_file_data,
     file_path: record.file_path,
     storage_type: record.storage_type,
     created_at: record.created_at,

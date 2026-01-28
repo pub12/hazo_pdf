@@ -83,10 +83,16 @@ import 'hazo_pdf/styles-full.css';
 import { PdfViewer } from 'hazo_pdf';
 ```
 
+Or for dialog/modal usage:
+
+```tsx
+import { PdfViewerDialog } from 'hazo_pdf';
+```
+
 For TypeScript projects, also import types:
 
 ```tsx
-import type { PdfViewerProps, PdfAnnotation, PdfViewerRef } from 'hazo_pdf';
+import type { PdfViewerProps, PdfViewerDialogProps, PdfAnnotation, PdfViewerRef } from 'hazo_pdf';
 ```
 
 ### 4. Create a Container with Explicit Dimensions
@@ -456,6 +462,58 @@ Extract structured data using LLM prompts:
   on_extract_complete={(data) => console.log('Extracted:', data)}
   on_extract_error={(error) => console.error('Error:', error)}
 />
+```
+
+### Use Server-Side Extraction (Optional)
+
+For server-side extraction in API routes, use `hazo_pdf/server`:
+
+```typescript
+// In Next.js API route or server action
+import { extract_document_data } from 'hazo_pdf/server';
+
+const result = await extract_document_data(
+  { file_path: '/path/to/document.pdf' },
+  {
+    prompt_area: 'invoices',
+    prompt_key: 'extract_invoice_data',
+    save_to_hazo_files: true,
+  }
+);
+
+if (result.success) {
+  console.log('Extracted:', result.data);
+}
+```
+
+**Note:** Requires `hazo_llm_api` package to be installed.
+
+### Use PdfViewerDialog for Modals (Optional)
+
+Display PDFs in a modal dialog with built-in backdrop and escape key handling:
+
+```tsx
+import { useState } from 'react';
+import { PdfViewerDialog } from 'hazo_pdf';
+
+function App() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>Open PDF</button>
+      <PdfViewerDialog
+        open={isOpen}
+        on_open_change={setIsOpen}
+        url="/document.pdf"
+        dialog_width="90vw"
+        dialog_height="90vh"
+        // All PdfViewer props also work
+        on_load={(pdf) => console.log('Loaded', pdf.numPages)}
+      />
+    </>
+  );
+}
 ```
 
 ### Enable File Info Sidepanel (Optional)

@@ -340,13 +340,8 @@ export const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
               style={{
                 position: 'relative',
                 marginBottom: '20px',
-                display: 'flex',
-                justifyContent: 'center',
                 // Inherit cursor from parent (grab/grabbing in pan mode)
                 cursor: 'inherit',
-                // Ensure page wrapper doesn't constrain width
-                width: 'auto',
-                minWidth: 'fit-content',
               }}
             >
               {/* PDF Page Renderer */}

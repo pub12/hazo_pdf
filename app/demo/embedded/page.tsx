@@ -52,6 +52,15 @@ function App() {
               url="/api/test-app/files/sample.pdf"
               fit_to_width={true}
               className="h-full w-full"
+              extract_api_endpoint="/api/extract"
+              extract_prompt_area="document"
+              extract_prompt_key="initial_classification"
+              on_extract_complete={(data) => {
+                console.log('[EmbeddedDemo] Extraction complete:', data);
+              }}
+              on_extract_error={(error) => {
+                console.error('[EmbeddedDemo] Extraction error:', error);
+              }}
             />
           </Suspense>
         </div>

@@ -1,7 +1,7 @@
 # Source files (dist/ is the distribution)
 src/
 
-# Configuration files
+# Build configuration files
 tsconfig.json
 tsconfig.next.json
 tsup.config.ts
@@ -10,15 +10,22 @@ postcss.config.cjs
 .eslintrc.json
 components.json
 
+# Config files for test app only (not needed in package)
+config/hazo_logs_config.ini
+config/hazo_llm_api_config.ini
+config/hazo_files_config.ini
+
 # Development files
 .cursor/
 .vscode/
 .git/
 .gitignore
 
-# Documentation (keep README.md)
+# Documentation (keep README.md and LICENSE)
 techdoc.md
 CLAUDE.md
+SETUP_CHECKLIST.md
+CHANGE_LOG.md
 
 # Test app (Next.js)
 app/
@@ -54,4 +61,14 @@ yarn-error.log*
 *.tmp
 *.swp
 .env*
+
+# Database files (used by test app only)
+*.sqlite
+*.sqlite3
+*.db
+
+# Package lock files (consumers should use their own)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 

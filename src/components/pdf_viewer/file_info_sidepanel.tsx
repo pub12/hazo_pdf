@@ -25,6 +25,14 @@ interface FileSystemItem {
 }
 
 /**
+ * Highlight field info for display in sidepanel
+ */
+export interface HighlightFieldInfo {
+  field_name: string;
+  value: string;
+}
+
+/**
  * Props for FileInfoSidepanel component
  */
 export interface FileInfoSidepanelProps {
@@ -42,6 +50,10 @@ export interface FileInfoSidepanelProps {
   file_metadata?: FileMetadataInput;
   /** Current filename to match against metadata */
   current_filename?: string;
+  /** Document data to display (e.g., doc_data from extraction) */
+  doc_data?: Record<string, unknown>;
+  /** Highlight fields info to display */
+  highlight_fields_info?: HighlightFieldInfo[];
 }
 
 /**
@@ -72,6 +84,8 @@ export const FileInfoSidepanel: React.FC<FileInfoSidepanelProps> = ({
   on_width_change,
   file_metadata,
   current_filename,
+  doc_data,
+  highlight_fields_info,
 }) => {
   const [expanded_tables, setExpandedTables] = useState<Set<string>>(new Set());
   const resize_ref = useRef<HTMLDivElement>(null);
@@ -156,6 +170,8 @@ export const FileInfoSidepanel: React.FC<FileInfoSidepanelProps> = ({
 
   const has_extracted_data = simple_fields.length > 0 || table_fields.length > 0;
   const has_file_info = item !== null;
+  const has_doc_data = doc_data && Object.keys(doc_data).length > 0;
+  const has_highlight_info = highlight_fields_info && highlight_fields_info.length > 0;
 
   return (
     <>
@@ -278,8 +294,53 @@ export const FileInfoSidepanel: React.FC<FileInfoSidepanelProps> = ({
               </div>
             )}
 
+            {/* Doc Data Section */}
+            {has_doc_data && (
+              <div className="cls_file_info_doc_data_section">
+                <div className="cls_file_info_section_header">Document Data</div>
+                <div className="cls_file_metadata_fields">
+                  {Object.entries(doc_data).map(([key, value]) => (
+                    <div key={key} className="cls_file_metadata_field">
+                      <span className="cls_file_metadata_field_label">
+                        {format_field_name(key)}
+                      </span>
+                      <span className="cls_file_metadata_field_value">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Divider between doc_data and highlight info */}
+            {has_doc_data && has_highlight_info && (
+              <div className="cls_file_info_divider" />
+            )}
+
+            {/* Highlight Fields Section */}
+            {has_highlight_info && (
+              <div className="cls_file_info_highlight_section">
+                <div className="cls_file_info_section_header">
+                  Highlighted Fields ({highlight_fields_info.length})
+                </div>
+                <div className="cls_file_metadata_fields">
+                  {highlight_fields_info.map((field, idx) => (
+                    <div key={idx} className="cls_file_metadata_field">
+                      <span className="cls_file_metadata_field_label">
+                        {format_field_name(field.field_name)}
+                      </span>
+                      <span className="cls_file_metadata_field_value cls_highlight_value">
+                        {field.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Divider between sections */}
-            {has_extracted_data && has_file_info && (
+            {(has_extracted_data || has_doc_data || has_highlight_info) && has_file_info && (
               <div className="cls_file_info_divider" />
             )}
 
@@ -301,7 +362,7 @@ export const FileInfoSidepanel: React.FC<FileInfoSidepanelProps> = ({
             )}
 
             {/* No data message */}
-            {!has_extracted_data && !has_file_info && (
+            {!has_extracted_data && !has_doc_data && !has_highlight_info && !has_file_info && (
               <div className="cls_file_info_no_data">
                 No file information available
               </div>

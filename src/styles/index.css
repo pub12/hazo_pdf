@@ -236,27 +236,28 @@
 }
 
 .cls_pdf_viewer_pages_container {
-  /* Flex layout for pages */
+  /* Flex layout for pages - column direction with centered items */
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 1rem;
-  /* CRITICAL: Container must expand beyond viewport for horizontal scrolling */
-  /* min-width ensures it's at least viewport width, width: max-content allows expansion */
+  /* Allow container to grow with content for horizontal scrolling when zoomed */
+  /* fit-content ensures it's sized to content but can shrink to viewport when smaller */
+  width: fit-content;
+  /* Ensure minimum width fills the viewport for proper centering */
   min-width: 100%;
-  width: max-content;
   /* Prevent flexbox from shrinking the container */
   flex-shrink: 0;
-  /* Center content but allow horizontal scrolling */
+  /* Align pages at top, centered horizontally */
   justify-content: flex-start;
-  /* Ensure container can be wider than parent */
   box-sizing: border-box;
-  /* Allow content to exceed viewport width */
-  max-width: none;
 }
 
 .cls_pdf_viewer_page_wrapper {
-  @apply relative mb-4;
+  @apply relative mb-5;
+  /* Page wrapper is a flex item inside the pages container */
+  /* No additional centering needed - parent handles it */
+  display: block;
 }
 
 /* PDF Page Renderer */
@@ -919,6 +920,20 @@
 .cls_file_info_path {
   @apply text-xs font-mono text-gray-500;
   line-height: 1.4;
+}
+
+/* Doc Data Section */
+.cls_file_info_doc_data_section {
+  @apply mb-4;
+}
+
+/* Highlight Section */
+.cls_file_info_highlight_section {
+  @apply mb-4;
+}
+
+.cls_highlight_value {
+  @apply text-orange-600 font-medium;
 }
 
 /* Responsive Design */

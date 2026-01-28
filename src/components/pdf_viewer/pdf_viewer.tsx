@@ -85,6 +85,9 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // hazo_files integration props
   file_manager,
   save_path,
+  // File info sidepanel data props
+  doc_data,
+  highlight_fields_info,
 }, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -773,12 +776,15 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
 
   // Handle annotation creation
   const handle_annotation_create = (annotation: PdfAnnotation) => {
-    const new_annotations = [...annotations, annotation];
-    setAnnotations(new_annotations);
-    save_to_history(new_annotations);
-    if (on_annotation_create) {
-      on_annotation_create(annotation);
-    }
+    // Use functional update to avoid stale closure when adding multiple annotations quickly
+    setAnnotations(prev => {
+      const new_annotations = [...prev, annotation];
+      save_to_history(new_annotations);
+      if (on_annotation_create) {
+        on_annotation_create(annotation);
+      }
+      return new_annotations;
+    });
   };
 
   // Handle annotation update
@@ -839,6 +845,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           border_color: options.border_color,
           background_color: options.background_color,
           background_opacity: options.background_opacity,
+          border_width: options.border_width,
         });
       }
 
@@ -1170,8 +1177,11 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       logger.debug('[PdfViewer] PDF converted to base64', { size_bytes: bytes.length });
 
       // Determine file path for hazo_files storage
-      // In multi-file mode, use current_file.url; otherwise use the url prop
-      const file_path = is_multi_file_mode ? current_file?.url : url;
+      // In multi-file mode, prefer file_path (actual filesystem path), fall back to url
+      // For single-file mode, use the url prop
+      const file_path = is_multi_file_mode
+        ? (current_file?.file_path || current_file?.url)
+        : url;
 
       logger.info('[PdfViewer] Calling extract API', { file_path });
 
@@ -1658,8 +1668,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
           </div>
         )}
 
-        {/* File Info sidepanel toggle button (shown when file_metadata or hazo_files is available) */}
-        {((file_metadata && file_metadata.length > 0) || hazo_files_available) && toolbar_config.toolbar_show_file_info_button && (
+        {/* File Info sidepanel toggle button (shown when file_metadata, hazo_files, doc_data, or highlight_fields_info is available) */}
+        {((file_metadata && file_metadata.length > 0) || hazo_files_available || doc_data || highlight_fields_info) && toolbar_config.toolbar_show_file_info_button && (
           <div className="cls_pdf_viewer_toolbar_group">
             <button
               type="button"
@@ -1751,7 +1761,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
         const total_sidepanel_width = (sidepanel_open ? sidepanel_width : 0) + (file_info_sidepanel_open ? file_info_sidepanel_width : 0);
         // Check if any sidepanel is available (has content)
         const has_metadata_sidepanel = sidepanel_metadata_enabled && metadata_input;
-        const has_file_info_sidepanel = ((file_metadata && file_metadata.length > 0) || hazo_files_available) && toolbar_config.toolbar_show_file_info_button;
+        const has_file_info_sidepanel = ((file_metadata && file_metadata.length > 0) || hazo_files_available || doc_data || highlight_fields_info) && toolbar_config.toolbar_show_file_info_button;
         const any_sidepanel_available = has_metadata_sidepanel || has_file_info_sidepanel;
         return (
       <div className={cn('cls_pdf_viewer_content_wrapper', any_sidepanel_open && 'cls_pdf_viewer_content_wrapper_with_sidepanel')}>
@@ -1857,7 +1867,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
         )}
 
         {/* File Info Sidepanel (combined extraction data + file system info) */}
-        {((file_metadata && file_metadata.length > 0) || hazo_files_available) && (
+        {((file_metadata && file_metadata.length > 0) || hazo_files_available || doc_data || highlight_fields_info) && (
           <FileInfoSidepanel
             is_open={file_info_sidepanel_open}
             on_toggle={handle_file_info_sidepanel_toggle}
@@ -1878,6 +1888,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             on_width_change={handle_file_info_sidepanel_width_change}
             file_metadata={file_metadata}
             current_filename={current_file?.name || (url ? url.split('/').pop() || '' : '')}
+            doc_data={doc_data}
+            highlight_fields_info={highlight_fields_info}
           />
         )}
       </div>

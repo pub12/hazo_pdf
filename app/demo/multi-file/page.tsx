@@ -5,9 +5,9 @@
 
 "use client";
 
-import { Suspense, lazy, useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect, useRef, useCallback } from "react";
 import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
-import type { FileItem, PdfAnnotation, UploadResult, FileMetadataInput, FileMetadataItem, Logger } from "@/app/lib/hazo_pdf";
+import type { FileItem, PdfAnnotation, UploadResult, FileMetadataInput, FileMetadataItem, Logger, PdfViewerRef } from "@/app/lib/hazo_pdf";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
@@ -37,6 +37,68 @@ interface DbFileMetadataRecord {
 }
 
 /**
+ * Simple highlight region - just field name and value for text search
+ */
+interface HighlightField {
+  field_name: string;
+  value: string;
+  page_index: number;
+}
+
+/**
+ * Parse extraction data to find highlightable fields
+ * Looks inside a nested key (default: "raw_data") for string values to highlight
+ * Falls back to top-level search if the nested key doesn't exist
+ */
+function parse_highlightable_fields(
+  data: Record<string, unknown>,
+  raw_data_key: string = "raw_data"
+): HighlightField[] {
+  const fields: HighlightField[] = [];
+  const seen_values = new Set<string>(); // Dedupe same values
+
+  // Determine source object - look inside raw_data_key first, fall back to top level
+  let source_data = data;
+  if (raw_data_key && data[raw_data_key] && typeof data[raw_data_key] === 'object') {
+    source_data = data[raw_data_key] as Record<string, unknown>;
+    console.log(`[parse_highlightable_fields] Using nested key "${raw_data_key}" with ${Object.keys(source_data).length} fields`);
+  } else {
+    console.log(`[parse_highlightable_fields] Key "${raw_data_key}" not found, using top-level data`);
+  }
+
+  // Iterate all key-value pairs and create highlights for any non-empty string value
+  for (const [key, value] of Object.entries(source_data)) {
+    if (value === null || value === undefined) continue;
+
+    // Handle both simple values and objects with 'value' property
+    let actualValue: string;
+    if (typeof value === 'object' && value !== null && 'value' in value) {
+      actualValue = String((value as { value: unknown }).value);
+    } else {
+      actualValue = String(value);
+    }
+
+    // Skip empty values
+    if (!actualValue || actualValue.trim() === '') continue;
+
+    // Normalize value for deduplication (remove formatting)
+    const normalized = actualValue.replace(/[,\s]/g, '');
+
+    // Only add if we haven't seen this value (avoids duplicate highlights)
+    if (!seen_values.has(normalized)) {
+      seen_values.add(normalized);
+      fields.push({
+        field_name: key,
+        value: actualValue,
+        page_index: 0, // Default to first page
+      });
+    }
+  }
+
+  return fields;
+}
+
+/**
  * Transform database extraction data to FileMetadataItem format
  * Extracts values from nested structure like { value: "166,410", page_no: 1, ... }
  */
@@ -49,8 +111,19 @@ function transform_db_to_file_metadata(records: DbFileMetadataRecord[]): FileMet
       (record.file_data?.raw_data?.[0]?.data);
 
     if (extraction && typeof extraction === 'object') {
-      for (const [key, value] of Object.entries(extraction)) {
+      // Process extraction data - look for doc_data first, then raw_data, then top-level
+      const doc_data = (extraction as Record<string, unknown>).doc_data as Record<string, unknown> | undefined;
+      const raw_data = (extraction as Record<string, unknown>).raw_data as Record<string, unknown> | undefined;
+
+      // Prefer doc_data (processed values), fall back to raw_data, then top-level extraction
+      const data_to_process = doc_data || raw_data || extraction;
+
+      for (const [key, value] of Object.entries(data_to_process)) {
         if (value === null || value === undefined) {
+          continue;
+        }
+        // Skip nested doc_data/raw_data keys if at top level
+        if (key === 'doc_data' || key === 'raw_data') {
           continue;
         }
         // Handle nested object with 'value' field (extraction result format)
@@ -60,26 +133,32 @@ function transform_db_to_file_metadata(records: DbFileMetadataRecord[]): FileMet
             file_data[key] = String(extracted_value);
           }
         }
-        // Handle arrays (tables)
+        // Handle arrays (tables or document_type arrays)
         else if (Array.isArray(value)) {
-          const rows = value.map((row) => {
-            const transformed_row: Record<string, string> = {};
-            if (typeof row === 'object' && row !== null) {
-              for (const [row_key, row_value] of Object.entries(row)) {
-                if (row_value !== null && row_value !== undefined) {
-                  // Handle nested value objects in arrays too
-                  if (typeof row_value === 'object' && 'value' in row_value) {
-                    transformed_row[row_key] = String((row_value as { value: unknown }).value);
-                  } else {
-                    transformed_row[row_key] = String(row_value);
+          // Check if it's an array of strings (like document_type: ["depreciation_doc"])
+          if (value.length > 0 && typeof value[0] === 'string') {
+            file_data[key] = value.join(', ');
+          } else {
+            // Array of objects (tables)
+            const rows = value.map((row) => {
+              const transformed_row: Record<string, string> = {};
+              if (typeof row === 'object' && row !== null) {
+                for (const [row_key, row_value] of Object.entries(row)) {
+                  if (row_value !== null && row_value !== undefined) {
+                    // Handle nested value objects in arrays too
+                    if (typeof row_value === 'object' && 'value' in row_value) {
+                      transformed_row[row_key] = String((row_value as { value: unknown }).value);
+                    } else {
+                      transformed_row[row_key] = String(row_value);
+                    }
                   }
                 }
               }
+              return transformed_row;
+            }).filter((row) => Object.keys(row).length > 0);
+            if (rows.length > 0) {
+              file_data[key] = rows;
             }
-            return transformed_row;
-          }).filter((row) => Object.keys(row).length > 0);
-          if (rows.length > 0) {
-            file_data[key] = rows;
           }
         }
         // Handle simple string/number values
@@ -166,6 +245,148 @@ export default function MultiFileDemoPage() {
   const [extracted_data, setExtractedData] = useState<Record<string, unknown> | null>(null);
   // State for file metadata from database
   const [db_file_metadata, setDbFileMetadata] = useState<FileMetadataInput>([]);
+  // State for highlight fields
+  const [highlight_fields, set_highlight_fields] = useState<HighlightField[]>([]);
+  // Ref to PdfViewer for imperative highlight API
+  const viewer_ref = useRef<PdfViewerRef>(null);
+
+  // Search PDF text layer for a value and return its position with padding
+  const find_text_position = useCallback(async (
+    pdf: import('pdfjs-dist').PDFDocumentProxy,
+    searchValue: string,
+    pageIndex: number
+  ): Promise<{ x: number; y: number; width: number; height: number } | null> => {
+    try {
+      const page = await pdf.getPage(pageIndex + 1); // 1-based
+      const textContent = await page.getTextContent();
+
+      // Normalize search value (remove commas, spaces)
+      const normalizedSearch = searchValue.toString().replace(/[,\s]/g, '').toLowerCase();
+      console.log(`[TextSearch] Searching for "${searchValue}" (normalized: "${normalizedSearch}") on page ${pageIndex + 1}`);
+
+      // Padding to add around the text for better visibility
+      const PADDING_X = 2;
+      const PADDING_Y = 1;
+      // Offset to push highlight down (negative in PDF coords = down visually)
+      const Y_OFFSET = -3;
+
+      // First pass: look for exact match
+      for (const item of textContent.items) {
+        if ('str' in item) {
+          const textItem = item as { str: string; transform: number[]; width?: number; height?: number };
+          const normalizedText = textItem.str.replace(/[,\s]/g, '').toLowerCase();
+
+          // Only match if this text item equals our search value
+          if (normalizedText === normalizedSearch) {
+            const x = textItem.transform[4];
+            const y = textItem.transform[5];
+            const fontSize = Math.abs(textItem.transform[0]) || 10;
+            // Calculate width based on character count and font size
+            const baseWidth = textItem.width || (textItem.str.length * fontSize * 0.55);
+            const baseHeight = textItem.height || fontSize;
+
+            // Add padding for better visibility
+            const width = baseWidth + (PADDING_X * 2);
+            const height = baseHeight + (PADDING_Y * 2);
+
+            console.log(`[TextSearch] EXACT match "${textItem.str}" at PDF coords (${x.toFixed(1)}, ${y.toFixed(1)}), size: ${width.toFixed(1)}x${height.toFixed(1)}`);
+            return {
+              x: x - PADDING_X,
+              y: y - PADDING_Y + Y_OFFSET,
+              width,
+              height
+            };
+          }
+        }
+      }
+
+      // Second pass: look for partial match (text item contains search value)
+      for (const item of textContent.items) {
+        if ('str' in item) {
+          const textItem = item as { str: string; transform: number[]; width?: number; height?: number };
+          const normalizedText = textItem.str.replace(/[,\s]/g, '').toLowerCase();
+
+          if (normalizedText.includes(normalizedSearch) && normalizedSearch.length >= 3) {
+            const x = textItem.transform[4];
+            const y = textItem.transform[5];
+            const fontSize = Math.abs(textItem.transform[0]) || 10;
+            const baseWidth = textItem.width || (textItem.str.length * fontSize * 0.55);
+            const baseHeight = textItem.height || fontSize;
+            const width = baseWidth + (PADDING_X * 2);
+            const height = baseHeight + (PADDING_Y * 2);
+
+            console.log(`[TextSearch] PARTIAL match "${textItem.str}" contains "${searchValue}" at PDF coords (${x.toFixed(1)}, ${y.toFixed(1)})`);
+            return {
+              x: x - PADDING_X,
+              y: y - PADDING_Y + Y_OFFSET,
+              width,
+              height
+            };
+          }
+        }
+      }
+
+      console.log(`[TextSearch] No match found for "${searchValue}"`);
+      return null;
+    } catch (err) {
+      console.error('[TextSearch] Error:', err);
+      return null;
+    }
+  }, []);
+
+  // Handle PDF load - find text positions and create highlights
+  const handle_pdf_load = useCallback(async (pdf: import('pdfjs-dist').PDFDocumentProxy) => {
+    console.log('[MultiFileDemo] PDF loaded, checking for highlight fields');
+
+    if (!viewer_ref.current || highlight_fields.length === 0) {
+      console.log('[MultiFileDemo] No highlight fields or viewer ref not ready');
+      return;
+    }
+
+    try {
+      // Wait a bit for viewer to render
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      console.log('[MultiFileDemo] Searching for text positions for', highlight_fields.length, 'fields');
+
+      // For each field, search for the value in the PDF text layer
+      for (const field of highlight_fields) {
+        const value = field.value;
+        if (!value) continue;
+
+        // Search for the text in the PDF
+        const textPos = await find_text_position(pdf, value, field.page_index);
+
+        if (textPos) {
+          // Use actual text position from PDF (already in PDF coordinates)
+          const finalRect: [number, number, number, number] = [
+            textPos.x,
+            textPos.y,
+            textPos.x + textPos.width,
+            textPos.y + textPos.height
+          ];
+          console.log(`[MultiFileDemo] Highlighting ${field.field_name}="${value}" at (${finalRect[0].toFixed(1)}, ${finalRect[1].toFixed(1)}) to (${finalRect[2].toFixed(1)}, ${finalRect[3].toFixed(1)})`);
+
+          // Create highlight
+          const id = viewer_ref.current.highlight_region(
+            field.page_index,
+            finalRect,
+            {
+              border_color: '#FF6B00',
+              background_color: '#FFF3E0',
+              background_opacity: 0.3,
+              border_width: 1,
+            }
+          );
+          console.log('[MultiFileDemo] Highlight created with id:', id);
+        } else {
+          console.log(`[MultiFileDemo] Text "${value}" not found in PDF for ${field.field_name}`);
+        }
+      }
+    } catch (err) {
+      console.error('[MultiFileDemo] Failed to process PDF:', err);
+    }
+  }, [highlight_fields, find_text_position]);
 
   // Initialize logger on mount
   useEffect(() => {
@@ -201,13 +422,14 @@ export default function MultiFileDemoPage() {
         if (data.files && Array.isArray(data.files)) {
           // Convert to FileItem format
           const file_items: FileItem[] = data.files
-            .filter((f: { name: string }) => f.name.endsWith('.pdf'))
-            .map((f: { name: string }, index: number) => ({
+            .filter((f: { name: string; path: string }) => f.name.endsWith('.pdf'))
+            .map((f: { name: string; path: string }, index: number) => ({
               id: `file_${index}`,
               name: f.name,
               url: `/api/test-app/files/${encodeURIComponent(f.name)}`,
               type: 'pdf' as const,
               mime_type: 'application/pdf',
+              file_path: f.path, // Store actual filesystem path for extraction
             }));
           setFiles(file_items);
         }
@@ -305,6 +527,11 @@ export default function MultiFileDemoPage() {
     console.log('[MultiFileDemo] Extraction complete:', data);
     setExtractedData(data);
 
+    // Parse highlightable fields from extraction data
+    const fields = parse_highlightable_fields(data, "raw_data");
+    console.log('[MultiFileDemo] Parsed highlight fields:', fields.length);
+    set_highlight_fields(fields);
+
     // Refresh file metadata from database to show newly extracted data
     try {
       const response = await fetch('/api/files');
@@ -389,16 +616,19 @@ function App() {
           ) : (
             <Suspense fallback={<div className="p-8 text-center">Loading PDF viewer...</div>}>
               <PdfViewer
+                ref={viewer_ref}
                 files={files}
                 on_file_select={handle_file_select}
                 on_file_delete={handle_file_delete}
                 on_upload={handle_upload}
                 on_files_change={handle_files_change}
                 on_annotation_create={handle_annotation_create}
+                on_load={handle_pdf_load}
                 enable_popout={true}
                 popout_route="/pdf-viewer"
                 viewer_title="Hazo PDF Viewer"
                 file_metadata={[...db_file_metadata, ...sample_file_metadata]}
+                highlight_fields_info={highlight_fields.map(f => ({ field_name: f.field_name, value: f.value }))}
                 logger={logger}
                 // Data extraction props
                 extract_api_endpoint="/api/extract"

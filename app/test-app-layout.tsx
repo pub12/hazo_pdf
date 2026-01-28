@@ -19,7 +19,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { Home, FileText, ChevronRight, ChevronDown, Layout, MessageSquare, PanelRight, Settings, Highlighter, Files, Code, FolderOpen, Sparkles, Table2 } from "lucide-react";
+import { Home, FileText, ChevronRight, ChevronDown, Layout, MessageSquare, PanelRight, Settings, Highlighter, Files, Code, FolderOpen, Sparkles, Table2, FileSearch } from "lucide-react";
 
 /**
  * File info from API
@@ -281,6 +281,14 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
                     <Link href="/demo/prompt-editor" className="cls_test_app_sidebar_menu_item">
                       <Sparkles className="cls_test_app_sidebar_menu_icon" />
                       <span>Prompt Editor</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/demo/server-extract" className="cls_test_app_sidebar_menu_item">
+                      <FileSearch className="cls_test_app_sidebar_menu_icon" />
+                      <span>Server Extract</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -3,6 +3,7 @@
  * Adheres to PDF annotation standard
  */
 
+import type React from 'react';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import type { Logger } from '../utils/logger';
 
@@ -89,6 +90,12 @@ export interface PdfViewerProps {
 
   /** File metadata input - flexible JSON array with filename matching */
   file_metadata?: FileMetadataInput;
+
+  /** Document data to display in file info sidepanel (e.g., doc_data from extraction) */
+  doc_data?: Record<string, unknown>;
+
+  /** Highlight fields info to display in file info sidepanel */
+  highlight_fields_info?: Array<{ field_name: string; value: string }>;
 
   // --- Toolbar visibility props (override config file values) ---
 
@@ -394,6 +401,41 @@ export interface HighlightOptions {
   background_color?: string;
   /** Background opacity 0-1 (default: from config highlight_fill_opacity) */
   background_opacity?: number;
+  /** Border width in pixels (default: 2) */
+  border_width?: number;
+}
+
+/**
+ * Props for PdfViewerDialog component
+ * Extends PdfViewerProps with dialog-specific props
+ */
+export interface PdfViewerDialogProps extends Omit<PdfViewerProps, 'on_close'> {
+  /** Whether the dialog is open */
+  open: boolean;
+
+  /** Callback when open state should change (close requested) */
+  on_open_change: (open: boolean) => void;
+
+  /** Dialog width (default: "90vw") */
+  dialog_width?: string;
+
+  /** Dialog height (default: "90vh") */
+  dialog_height?: string;
+
+  /** Whether clicking the backdrop closes the dialog (default: true) */
+  close_on_backdrop_click?: boolean;
+
+  /** Whether pressing Escape closes the dialog (default: true) */
+  close_on_escape?: boolean;
+
+  /** Loading fallback content (default: "Loading PDF viewer...") */
+  loading_fallback?: React.ReactNode;
+
+  /** Additional class names for the dialog container */
+  dialog_class_name?: string;
+
+  /** Additional class names for the backdrop overlay */
+  backdrop_class_name?: string;
 }
 
 /**
