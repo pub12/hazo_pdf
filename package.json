@@ -121,7 +121,7 @@
     "prepublishOnly": "npm run build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "dev:test-app": "tsup && concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
+    "test-app:dev": "npm run build && concurrently -n tsup,next -c blue,green \"npm:dev\" \"next dev\"",
     "test-app:build": "next build",
     "test-app:start": "next start"
   }
