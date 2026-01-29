@@ -1,6 +1,6 @@
 {
   "name": "hazo_pdf",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "PDF viewer and annotater component for React",
   "keywords": [
     "pdf",
