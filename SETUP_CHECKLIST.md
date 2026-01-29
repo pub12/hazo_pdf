@@ -92,7 +92,13 @@ import { PdfViewerDialog } from 'hazo_pdf';
 For TypeScript projects, also import types:
 
 ```tsx
-import type { PdfViewerProps, PdfViewerDialogProps, PdfAnnotation, PdfViewerRef } from 'hazo_pdf';
+import type {
+  PdfViewerProps,
+  PdfViewerDialogProps,
+  PdfAnnotation,
+  PdfViewerRef,
+  HighlightFieldInfo
+} from 'hazo_pdf';
 ```
 
 ### 4. Create a Container with Explicit Dimensions
@@ -518,7 +524,36 @@ function App() {
 
 ### Enable File Info Sidepanel (Optional)
 
-Display extracted metadata and file information:
+Display extracted document data and highlighted fields in a sidepanel:
+
+```tsx
+import type { HighlightFieldInfo } from 'hazo_pdf';
+
+// Document-level data
+const doc_data = {
+  invoice_number: 'INV-2024-001',
+  total_amount: 1250.00,
+  customer_name: 'Acme Corp',
+};
+
+// Highlighted fields (with visual emphasis)
+const highlight_fields_info: HighlightFieldInfo[] = [
+  { field_name: 'invoice_number', value: 'INV-2024-001' },
+  { field_name: 'total_amount', value: '$1,250.00' },
+  { field_name: 'customer_name', value: 'Acme Corp' },
+];
+
+<PdfViewer
+  url="/invoice.pdf"
+  doc_data={doc_data}
+  highlight_fields_info={highlight_fields_info}
+  show_file_info_button={true}
+/>
+```
+
+**Alternative: Legacy File Metadata Format**
+
+For file-based metadata with filename matching:
 
 ```tsx
 import type { FileMetadataInput } from 'hazo_pdf';

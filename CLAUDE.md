@@ -88,10 +88,59 @@ npm run lint
 - Test app at `app/` directory (Next.js) accessed via `npm run test-app:dev`
 - Use Chrome browser automation tools to verify rendered styles match expectations
 
+## File Info Sidepanel
+
+The File Info Sidepanel displays extracted data, document metadata, and highlighted fields. It supports three data input types:
+
+### 1. Document Data (`doc_data` prop)
+General structured data from document extraction. Displayed in "Document Data" section.
+
+### 2. Highlighted Fields (`highlight_fields_info` prop)
+Specific extracted fields with visual highlighting. Uses `HighlightFieldInfo[]` type.
+
+```typescript
+// Type definition
+export interface HighlightFieldInfo {
+  field_name: string;  // Field identifier (auto-formatted to Title Case)
+  value: string;       // Extracted value (displayed with highlight styling)
+}
+
+// Usage example
+const highlights: HighlightFieldInfo[] = [
+  { field_name: 'document_date', value: '30 June 2024' },
+  { field_name: 'total_amount', value: '$29,696.60' },
+];
+
+<PdfViewer
+  url="/document.pdf"
+  highlight_fields_info={highlights}
+  show_file_info_button={true}
+/>
+```
+
+### 3. File Metadata (`file_metadata` prop)
+Legacy filename-matched metadata. Supports string fields and table arrays.
+
+### Key Components
+- **file_info_sidepanel.tsx**: Main sidepanel component
+- **HighlightFieldInfo**: Exported type for highlight fields (must be exported from index.ts)
+- **doc_data**: Flexible Record<string, unknown> for general data
+- **highlight_fields_info**: Array<HighlightFieldInfo> for highlighted extractions
+
+### Display Sections (in order)
+1. Extracted Data (from file_metadata)
+2. Document Data (from doc_data)
+3. Highlighted Fields (from highlight_fields_info) - with count and special styling
+4. File System Info (filename, path)
+
+### Integration with Extraction
+When extraction completes, populate both `doc_data` and `highlight_fields_info` to show results in sidepanel.
+
 ## Key Files
 
-- `src/index.ts` - Main entry point, exports public API
+- `src/index.ts` - Main entry point, exports public API (includes HighlightFieldInfo)
 - `src/types/index.ts` - TypeScript type definitions (PdfAnnotation, PdfViewerProps, etc.)
+- `src/components/pdf_viewer/file_info_sidepanel.tsx` - File info sidepanel component
 - `src/utils/logger.ts` - Logger interface and utilities (set_logger, get_logger)
 - `tsup.config.ts` - Build configuration
 - `config/hazo_pdf_config.ini` - Example configuration file with all available options

@@ -73,6 +73,21 @@ Use `styles-full.css` - includes Tailwind preflight/base styles for apps without
 import 'hazo_pdf/styles-full.css';
 ```
 
+## Tailwind v4 Setup (Required for Tailwind v4 users)
+
+If your consuming application uses Tailwind v4, you must add a `@source` directive to your CSS file to enable Tailwind to scan this package's classes:
+
+```css
+@import "tailwindcss";
+
+/* Required: Enable Tailwind to scan hazo_pdf package classes */
+@source "../node_modules/hazo_pdf/dist";
+```
+
+Without this directive, Tailwind v4's JIT compiler will not generate CSS for the utility classes used in hazo_pdf components, resulting in missing styles (transparent hover states, missing colors, broken layouts).
+
+**Note**: Tailwind v3 users do not need this configuration.
+
 ## Container Requirements
 
 The PDF viewer requires its parent container to have explicit dimensions:
@@ -752,7 +767,15 @@ You can override any or all of these on a per-highlight basis.
 | `sidepanel_metadata_enabled` | `boolean` | `false` | If `true`, enables the metadata sidepanel on the right side of the viewer. The panel can be toggled from the toolbar or right edge button. |
 | `metadata_input` | `MetadataInput` | `undefined` | Metadata structure with header, data (accordions), and footer sections. Each section supports different format types (h1-h5, body) and editable fields. See [Sidepanel Metadata](#sidepanel-metadata) section for details. |
 | `on_metadata_change` | `(updatedRow: MetadataDataItem, allData: MetadataInput) => { updatedRow: MetadataDataItem; allData: MetadataInput }` | `undefined` | Callback when a metadata field is edited. Receives the updated row and complete metadata structure. Must return both parameters. Use this to persist metadata changes to your backend. |
-| `file_metadata` | `FileMetadataInput` | `undefined` | Array of file metadata items with extracted data. Each item has `filename` (to match current file) and `file_data` (flexible JSON object with string fields or table arrays). See [File Info Sidepanel](#file-info-sidepanel) section for details. |
+
+##### File Info Sidepanel
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `doc_data` | `Record<string, unknown>` | `undefined` | General document data to display in the File Info sidepanel. Shown in the "Document Data" section. Can contain any structured data from extraction (strings, numbers, arrays, objects). |
+| `highlight_fields_info` | `HighlightFieldInfo[]` | `undefined` | Array of highlighted/extracted fields to display with special styling. Shown in the "Highlighted Fields" section with field count. Each item has `field_name` (converted to Title Case) and `value` (displayed string). |
+| `file_metadata` | `FileMetadataInput` | `undefined` | Legacy format: Array of file metadata items with filename matching. Each item has `filename` (to match current file) and `file_data` (flexible JSON object with string fields or table arrays). See [File Info Sidepanel](#file-info-sidepanel) section for details. |
+| `show_file_info_button` | `boolean` | `true` | Show file info sidepanel button in toolbar. Button only appears when at least one of: `doc_data`, `highlight_fields_info`, or `file_metadata` is provided. |
 
 ##### Custom Stamps
 
@@ -1773,30 +1796,179 @@ Extracted data is automatically saved to the `hazo_files` SQLite table with:
 
 ## File Info Sidepanel
 
-Display extracted metadata and file system information in a retractable sidepanel.
+Display extracted metadata, document data, and highlighted fields in a retractable sidepanel. The sidepanel can show three types of data:
+1. **Document Data** (`doc_data`) - General structured data extracted from the PDF
+2. **Highlighted Fields** (`highlight_fields_info`) - Specific fields that were highlighted/extracted
+3. **File Metadata** (`file_metadata`) - Legacy format for file-based metadata matching
 
-### Enabling File Info Sidepanel
+### Basic Usage with Document Data and Highlights
+
+This is the recommended approach for displaying extraction results:
 
 ```tsx
 import { PdfViewer } from 'hazo_pdf';
-import type { FileMetadataInput } from 'hazo_pdf';
+import type { HighlightFieldInfo } from 'hazo_pdf';
 import 'hazo_pdf/styles.css';
 
-function ViewerWithFileInfo() {
+function ViewerWithExtractionResults() {
+  // Document-level data (shown in "Document Data" section)
+  const doc_data = {
+    document_date: '2024-06-30',
+    total_amount: 29696.60,
+    document_type: ['bank_interest_doc', 'dividend_doc'],
+    bank_name: 'Raiz Invest Australia',
+    total_interest: 1006.59,
+    tax_withheld: 0.00,
+    stock_code: 'Aggregate Fund Stocks',
+    unfranked_amount: 2280.70,
+    franked_amount: 1051.10,
+    franking_credit: 450.47,
+  };
+
+  // Highlighted fields (shown in "Highlighted Fields" section with special styling)
+  const highlight_fields_info: HighlightFieldInfo[] = [
+    { field_name: 'document_date', value: '30 June 2024' },
+    { field_name: 'total_amount', value: '$29,696.60' },
+    { field_name: 'bank_name', value: 'Raiz Invest Australia' },
+    { field_name: 'total_interest', value: '1006.59' },
+    { field_name: 'tax_withheld', value: '0' },
+    { field_name: 'stock_code', value: 'Aggregate Fund Stocks' },
+    { field_name: 'unfranked_amount', value: '2280.70' },
+    { field_name: 'franked_amount', value: '1051.10' },
+    { field_name: 'franking_credit', value: '450.47' },
+  ];
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/tax-statement.pdf"
+        doc_data={doc_data}
+        highlight_fields_info={highlight_fields_info}
+        show_file_info_button={true}
+      />
+    </div>
+  );
+}
+```
+
+### Understanding the Three Data Types
+
+#### 1. Document Data (`doc_data`)
+
+General structured data from the document. Displayed in the "Document Data" section.
+
+```tsx
+const doc_data = {
+  invoice_number: 'INV-2024-001',
+  total_amount: 1250.00,
+  invoice_date: '2024-01-15',
+  customer_name: 'Acme Corp',
+  // Can include arrays
+  tags: ['urgent', 'paid'],
+  // Can include nested objects
+  billing_address: {
+    street: '123 Main St',
+    city: 'Sydney'
+  }
+};
+
+<PdfViewer
+  url="/invoice.pdf"
+  doc_data={doc_data}
+/>
+```
+
+#### 2. Highlighted Fields (`highlight_fields_info`)
+
+Specific fields that were extracted/highlighted from the PDF. These are displayed with special styling in the "Highlighted Fields" section.
+
+```tsx
+import type { HighlightFieldInfo } from 'hazo_pdf';
+
+const highlight_fields_info: HighlightFieldInfo[] = [
+  { field_name: 'invoice_number', value: 'INV-2024-001' },
+  { field_name: 'total_amount', value: '$1,250.00' },
+  { field_name: 'due_date', value: '2024-02-15' },
+];
+
+<PdfViewer
+  url="/invoice.pdf"
+  highlight_fields_info={highlight_fields_info}
+/>
+```
+
+**HighlightFieldInfo Interface:**
+
+```typescript
+interface HighlightFieldInfo {
+  field_name: string;  // Field identifier (converted to Title Case for display)
+  value: string;       // Extracted value (shown with highlight styling)
+}
+```
+
+#### 3. File Metadata (`file_metadata`)
+
+Legacy format for file-based metadata with filename matching. Useful when managing multiple files with different extraction schemas.
+
+```tsx
+import type { FileMetadataInput } from 'hazo_pdf';
+
+const file_metadata: FileMetadataInput = [
+  {
+    filename: 'invoice.pdf',
+    file_data: {
+      // Simple string fields
+      invoice_number: 'INV-2024-001',
+      total_amount: '$1,250.00',
+      invoice_date: '2024-01-15',
+
+      // Table fields (array of objects)
+      line_items: [
+        { item: 'Widget A', quantity: '10', price: '$50.00', total: '$500.00' },
+        { item: 'Widget B', quantity: '15', price: '$50.00', total: '$750.00' }
+      ]
+    }
+  }
+];
+
+<PdfViewer
+  url="/invoice.pdf"
+  file_metadata={file_metadata}
+  show_file_info_button={true}
+/>
+```
+
+### Complete Example: All Data Types Together
+
+You can combine all three data types in a single viewer:
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import type { HighlightFieldInfo, FileMetadataInput } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function CompleteSidepanelExample() {
+  // General document data
+  const doc_data = {
+    document_type: 'Tax Statement',
+    account_number: '1234567890',
+    statement_period: '2024 Financial Year',
+  };
+
+  // Highlighted/extracted fields
+  const highlight_fields_info: HighlightFieldInfo[] = [
+    { field_name: 'total_income', value: '$125,000.00' },
+    { field_name: 'total_deductions', value: '$25,000.00' },
+    { field_name: 'taxable_income', value: '$100,000.00' },
+  ];
+
+  // File-based metadata (optional)
   const file_metadata: FileMetadataInput = [
     {
-      filename: 'invoice.pdf',
+      filename: 'tax-statement.pdf',
       file_data: {
-        // Simple string fields
-        invoice_number: 'INV-2024-001',
-        total_amount: '$1,250.00',
-        invoice_date: '2024-01-15',
-
-        // Table fields (array of objects)
-        line_items: [
-          { item: 'Widget A', quantity: '10', price: '$50.00', total: '$500.00' },
-          { item: 'Widget B', quantity: '15', price: '$50.00', total: '$750.00' }
-        ]
+        filing_status: 'Individual',
+        tax_year: '2024',
       }
     }
   ];
@@ -1804,7 +1976,9 @@ function ViewerWithFileInfo() {
   return (
     <div style={{ width: '100%', height: '800px' }}>
       <PdfViewer
-        url="/invoice.pdf"
+        url="/tax-statement.pdf"
+        doc_data={doc_data}
+        highlight_fields_info={highlight_fields_info}
         file_metadata={file_metadata}
         show_file_info_button={true}
       />
@@ -1813,30 +1987,103 @@ function ViewerWithFileInfo() {
 }
 ```
 
-**FileMetadataInput Structure:**
+**Sidepanel Display Order:**
+1. **Extracted Data** (from `file_metadata`) - if provided
+2. **Document Data** (from `doc_data`) - if provided
+3. **Highlighted Fields** (from `highlight_fields_info`) - if provided
+4. **File System Info** - filename and path
 
-```typescript
-interface FileMetadataInput {
-  filename: string;  // Filename to match
-  file_data: Record<string, string | Array<Record<string, string>>>;
+### Integration with Data Extraction
+
+When using the data extraction feature, you can display the results in the sidepanel:
+
+```tsx
+import { useState } from 'react';
+import { PdfViewer } from 'hazo_pdf';
+import type { HighlightFieldInfo } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function ViewerWithExtraction() {
+  const [doc_data, setDocData] = useState<Record<string, unknown> | undefined>();
+  const [highlight_fields, setHighlightFields] = useState<HighlightFieldInfo[]>([]);
+
+  const handle_extract_complete = (data: Record<string, unknown>) => {
+    console.log('Extracted data:', data);
+
+    // Set document data
+    setDocData(data);
+
+    // Create highlighted fields from extracted data
+    const highlights: HighlightFieldInfo[] = Object.entries(data)
+      .filter(([key, value]) => typeof value === 'string' || typeof value === 'number')
+      .map(([key, value]) => ({
+        field_name: key,
+        value: String(value)
+      }));
+
+    setHighlightFields(highlights);
+  };
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/document.pdf"
+        show_extract_button={true}
+        extract_prompt_area="documents"
+        extract_prompt_key="extract_data"
+        extract_api_endpoint="/api/extract"
+        on_extract_complete={handle_extract_complete}
+        doc_data={doc_data}
+        highlight_fields_info={highlight_fields}
+        show_file_info_button={true}
+      />
+    </div>
+  );
 }
 ```
 
-**Field Types:**
-- **String fields**: Simple key-value pairs displayed as labels
-- **Table fields**: Arrays of objects displayed as collapsible tables with rows
+### Sidepanel Features
 
-**Sidepanel Features:**
-- **Extracted Data Section**: Shows all fields from `file_data`
-- **File System Section**: Shows filename and path information
-- **Collapsible Tables**: Table fields can be expanded/collapsed
-- **Resizable**: Drag left edge to resize panel (200px - 800px)
+- **Auto-show button**: Info icon button appears in toolbar when any data is available
+- **Collapsible sections**: Each data type appears in its own collapsible section
+- **Resizable**: Drag the left edge to resize panel (200px - 800px)
 - **Responsive**: Adapts to mobile/tablet/desktop screens
+- **Field formatting**: Field names are automatically converted from `snake_case` to Title Case
+- **Visual highlighting**: Highlighted fields use special styling to stand out
+- **Empty state**: Shows "No file information available" when no data is provided
 
-**Field Formatting:**
-- Field names are automatically converted from `snake_case` to Title Case
-- Table rows display as two-column layouts (field name | value)
-- Empty data shows "No file information available"
+### Field Formatting
+
+Field names are automatically formatted:
+- `document_date` → "Document Date"
+- `total_amount` → "Total Amount"
+- `tax_withheld` → "Tax Withheld"
+
+Values are displayed as-is (no automatic formatting), so format them in your data:
+- Use `'$1,250.00'` instead of `1250` for currency
+- Use `'30 June 2024'` instead of `'2024-06-30'` for display-friendly dates
+
+### TypeScript Types
+
+```typescript
+// Import types
+import type { HighlightFieldInfo, FileMetadataInput } from 'hazo_pdf';
+
+// HighlightFieldInfo
+interface HighlightFieldInfo {
+  field_name: string;
+  value: string;
+}
+
+// FileMetadataInput
+type FileMetadataInput = Array<{
+  filename: string;
+  file_data: Record<string, string | Array<Record<string, string>>>;
+}>;
+
+// Document data (flexible structure)
+type DocData = Record<string, unknown>;
+```
 
 ---
 

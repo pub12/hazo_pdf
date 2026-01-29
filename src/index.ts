@@ -71,6 +71,7 @@ export type { Logger } from './utils/logger';
 
 // Type exports
 export type * from './types';
+export type { HighlightFieldInfo } from './components/pdf_viewer/file_info_sidepanel';
 
 // Style exports (should be imported separately)
 // import 'hazo_pdf/styles.css';

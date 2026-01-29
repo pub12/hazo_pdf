@@ -95,6 +95,7 @@ export interface PdfViewerProps {
   doc_data?: Record<string, unknown>;
 
   /** Highlight fields info to display in file info sidepanel */
+  /** Use the HighlightFieldInfo type: Array<{ field_name: string; value: string }> */
   highlight_fields_info?: Array<{ field_name: string; value: string }>;
 
   // --- Toolbar visibility props (override config file values) ---
