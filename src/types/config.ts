@@ -265,6 +265,26 @@ export interface PdfViewerConfig {
     margin: number;
   };
 
+  // Auto-highlight configuration
+  auto_highlight: {
+    /** Border color for auto-created highlights (hex format) */
+    auto_highlight_border_color: string;
+    /** Background color for auto-created highlights (hex format) */
+    auto_highlight_background_color: string;
+    /** Background opacity for auto-created highlights (0.0 to 1.0) */
+    auto_highlight_background_opacity: number;
+    /** Border width for auto-created highlights in pixels */
+    auto_highlight_border_width: number;
+    /** Whether to normalize text during search (remove commas, spaces) */
+    auto_highlight_normalize_text: boolean;
+    /** Horizontal padding around highlighted text */
+    auto_highlight_padding_x: number;
+    /** Vertical padding around highlighted text */
+    auto_highlight_padding_y: number;
+    /** Y-axis offset to adjust highlight position */
+    auto_highlight_y_offset: number;
+  };
+
   // File button configuration (compact trigger)
   file_button: {
     /** Icon size in pixels */

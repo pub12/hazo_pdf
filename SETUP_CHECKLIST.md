@@ -522,9 +522,51 @@ function App() {
 }
 ```
 
+### Enable Auto-Highlighting (Optional)
+
+Automatically highlight extracted field values in the PDF:
+
+```tsx
+import type { HighlightFieldInfo } from 'hazo_pdf';
+
+// Highlighted fields (automatically searches and highlights in PDF)
+const highlight_fields_info: HighlightFieldInfo[] = [
+  { field_name: 'invoice_number', value: 'INV-2024-001', page_index: 0 },
+  { field_name: 'total_amount', value: '$1,250.00', page_index: 0 },
+  { field_name: 'customer_name', value: 'Acme Corp', page_index: 0 },
+];
+
+<PdfViewer
+  url="/invoice.pdf"
+  highlight_fields_info={highlight_fields_info}
+  show_file_info_button={true}
+/>
+```
+
+**Features:**
+- Automatically searches for field values in the PDF text layer
+- Creates visual highlight boxes at found positions
+- Displays field names and values in File Info sidepanel
+- Smart text matching (exact first, then partial with normalization)
+- Configurable colors, opacity, and search behavior
+
+**Customize highlight appearance:**
+
+```tsx
+<PdfViewer
+  url="/invoice.pdf"
+  highlight_fields_info={highlight_fields_info}
+  auto_highlight_options={{
+    border_color: '#0066CC',
+    background_color: '#E6F2FF',
+    background_opacity: 0.4,
+  }}
+/>
+```
+
 ### Enable File Info Sidepanel (Optional)
 
-Display extracted document data and highlighted fields in a sidepanel:
+Display extracted document data in a sidepanel:
 
 ```tsx
 import type { HighlightFieldInfo } from 'hazo_pdf';
@@ -536,11 +578,11 @@ const doc_data = {
   customer_name: 'Acme Corp',
 };
 
-// Highlighted fields (with visual emphasis)
+// Highlighted fields (auto-highlighted and shown in sidepanel)
 const highlight_fields_info: HighlightFieldInfo[] = [
-  { field_name: 'invoice_number', value: 'INV-2024-001' },
-  { field_name: 'total_amount', value: '$1,250.00' },
-  { field_name: 'customer_name', value: 'Acme Corp' },
+  { field_name: 'invoice_number', value: 'INV-2024-001', page_index: 0 },
+  { field_name: 'total_amount', value: '$1,250.00', page_index: 0 },
+  { field_name: 'customer_name', value: 'Acme Corp', page_index: 0 },
 ];
 
 <PdfViewer
@@ -582,7 +624,8 @@ const file_metadata: FileMetadataInput = [
 ## Next Steps
 
 - [ ] Read the [README.md](./README.md) for detailed API documentation
-- [ ] Explore the [Programmatic Highlight API](./README.md#programmatic-highlight-api) section for advanced usage
+- [ ] Explore the [Auto-Highlighting](./README.md#auto-highlighting) feature for automatic field highlighting
+- [ ] Explore the [Programmatic Highlight API](./README.md#programmatic-highlight-api) section for manual highlight control
 - [ ] Review configuration options in `config/hazo_pdf_config.ini`
 - [ ] Check out example implementations in the README
 - [ ] Test annotation features (Square, FreeText, Stamps)

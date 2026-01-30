@@ -25,12 +25,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./server": {
+      "types": "./dist/server/index.d.ts",
       "import": "./dist/server/index.js",
-      "types": "./dist/server/index.d.ts"
+      "default": "./dist/server/index.js"
     },
     "./styles.css": "./dist/styles/index.css",
     "./styles-full.css": "./dist/styles/full.css"

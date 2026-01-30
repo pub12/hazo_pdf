@@ -654,6 +654,41 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
       ),
     },
 
+    auto_highlight: {
+      auto_highlight_border_color: parse_color(
+        get_value('auto_highlight', 'auto_highlight_border_color'),
+        default_config.auto_highlight.auto_highlight_border_color
+      ),
+      auto_highlight_background_color: parse_color(
+        get_value('auto_highlight', 'auto_highlight_background_color'),
+        default_config.auto_highlight.auto_highlight_background_color
+      ),
+      auto_highlight_background_opacity: parse_opacity(
+        get_value('auto_highlight', 'auto_highlight_background_opacity'),
+        default_config.auto_highlight.auto_highlight_background_opacity
+      ),
+      auto_highlight_border_width: parse_number(
+        get_value('auto_highlight', 'auto_highlight_border_width'),
+        default_config.auto_highlight.auto_highlight_border_width
+      ),
+      auto_highlight_normalize_text: parse_boolean(
+        get_value('auto_highlight', 'auto_highlight_normalize_text'),
+        default_config.auto_highlight.auto_highlight_normalize_text
+      ),
+      auto_highlight_padding_x: parse_number(
+        get_value('auto_highlight', 'auto_highlight_padding_x'),
+        default_config.auto_highlight.auto_highlight_padding_x
+      ),
+      auto_highlight_padding_y: parse_number(
+        get_value('auto_highlight', 'auto_highlight_padding_y'),
+        default_config.auto_highlight.auto_highlight_padding_y
+      ),
+      auto_highlight_y_offset: parse_number(
+        get_value('auto_highlight', 'auto_highlight_y_offset'),
+        default_config.auto_highlight.auto_highlight_y_offset
+      ),
+    },
+
     file_button: {
       icon_size: parse_number(
         get_value('file_button', 'icon_size'),

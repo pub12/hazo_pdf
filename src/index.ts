@@ -69,9 +69,12 @@ export { default_config } from './config/default_config';
 export { set_logger, get_logger } from './utils/logger';
 export type { Logger } from './utils/logger';
 
+// Text search utility exports
+export { find_text_in_pdf } from './utils/text_search';
+export type { TextSearchOptions, TextSearchResult } from './utils/text_search';
+
 // Type exports
 export type * from './types';
-export type { HighlightFieldInfo } from './components/pdf_viewer/file_info_sidepanel';
 
 // Style exports (should be imported separately)
 // import 'hazo_pdf/styles.css';

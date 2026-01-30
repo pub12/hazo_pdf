@@ -6,6 +6,7 @@
 import type React from 'react';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import type { Logger } from '../utils/logger';
+import type { TextSearchOptions } from '../utils/text_search';
 
 // Re-export Logger type
 export type { Logger };
@@ -95,8 +96,8 @@ export interface PdfViewerProps {
   doc_data?: Record<string, unknown>;
 
   /** Highlight fields info to display in file info sidepanel */
-  /** Use the HighlightFieldInfo type: Array<{ field_name: string; value: string }> */
-  highlight_fields_info?: Array<{ field_name: string; value: string }>;
+  /** Use the HighlightFieldInfo type: Array<{ field_name: string; value: string; page_index?: number }> */
+  highlight_fields_info?: HighlightFieldInfo[];
 
   // --- Toolbar visibility props (override config file values) ---
 
@@ -152,6 +153,17 @@ export interface PdfViewerProps {
 
   /** Callback when close button is clicked (shows close button in toolbar when provided) */
   on_close?: () => void;
+
+  // --- Auto-highlight props ---
+
+  /** Enable auto-highlighting when highlight_fields_info is provided (default: true) */
+  auto_highlight_enabled?: boolean;
+
+  /** Highlight style options for auto-created highlights */
+  auto_highlight_options?: HighlightOptions;
+
+  /** Text search options for auto-highlighting */
+  auto_highlight_search_options?: Partial<Omit<TextSearchOptions, 'page_index'>>;
 
   // --- Multi-file support props (mutually exclusive with url) ---
 
@@ -391,6 +403,18 @@ export interface FileMetadataItem {
  * Used as input for the file metadata sidepanel
  */
 export type FileMetadataInput = FileMetadataItem[];
+
+/**
+ * Highlight field information for displaying in sidepanel and auto-highlighting
+ */
+export interface HighlightFieldInfo {
+  /** Field name (will be auto-formatted to Title Case in display) */
+  field_name: string;
+  /** Extracted value to display and search for */
+  value: string;
+  /** Page index where the field is located (0-based, default: 0) */
+  page_index?: number;
+}
 
 /**
  * Options for programmatic highlight creation via PdfViewerRef

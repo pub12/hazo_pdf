@@ -148,6 +148,17 @@ export const default_config: PdfViewerConfig = {
     margin: 36,
   },
 
+  auto_highlight: {
+    auto_highlight_border_color: '#FF6B00',
+    auto_highlight_background_color: '#FFF3E0',
+    auto_highlight_background_opacity: 0.3,
+    auto_highlight_border_width: 1,
+    auto_highlight_normalize_text: true,
+    auto_highlight_padding_x: 2,
+    auto_highlight_padding_y: 1,
+    auto_highlight_y_offset: -3,
+  },
+
   file_button: {
     icon_size: 24,
     icon_color: '#6b7280',

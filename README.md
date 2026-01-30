@@ -6,6 +6,7 @@ A React component library for viewing and annotating PDF documents with support 
 
 - 📄 **PDF Viewing** - Render PDF documents with customizable zoom levels
 - ✏️ **Annotations** - Square and FreeText annotation tools
+- ✨ **Auto-Highlighting** - Automatically highlight extracted field values in PDFs
 - 🔍 **Programmatic Highlights** - Ref-based API for creating and managing highlights programmatically
 - 🎨 **Customizable Styling** - Extensive configuration options via INI file
 - ⏰ **Timestamp Support** - Automatic timestamp appending to annotations
@@ -516,9 +517,155 @@ See `config/hazo_pdf_config.ini` in the project root for all available configura
 
 ---
 
+## Auto-Highlighting
+
+The PDF viewer can automatically highlight extracted field values in your PDFs. Simply provide field names and values via the `highlight_fields_info` prop, and the viewer will search for and highlight them automatically.
+
+### Basic Usage
+
+```tsx
+import { PdfViewer } from 'hazo_pdf';
+import 'hazo_pdf/styles.css';
+
+function AutoHighlightExample() {
+  const extracted_data = {
+    document_date: '30 June 2024',
+    total_amount: '$29,696.60',
+    vendor_name: 'ACME Corporation',
+  };
+
+  return (
+    <div style={{ width: '100%', height: '800px' }}>
+      <PdfViewer
+        url="/invoice.pdf"
+        highlight_fields_info={[
+          { field_name: 'document_date', value: '30 June 2024', page_index: 0 },
+          { field_name: 'total_amount', value: '$29,696.60', page_index: 0 },
+          { field_name: 'vendor_name', value: 'ACME Corporation', page_index: 0 },
+        ]}
+        show_file_info_button={true}
+      />
+    </div>
+  );
+}
+```
+
+**That's it!** The viewer will:
+1. Search for each value in the PDF text layer
+2. Create visual highlight boxes at the found positions
+3. Display field names and values in the File Info sidepanel
+
+### How It Works
+
+- **Smart Text Search**: Exact match first, then partial match with normalization (removes commas/spaces)
+- **Automatic Cleanup**: Highlights are removed when the PDF changes or component unmounts
+- **Non-Blocking**: Text search runs asynchronously without freezing the UI
+- **Configurable**: Customize colors, opacity, padding, and search behavior
+
+### HighlightFieldInfo Type
+
+```typescript
+interface HighlightFieldInfo {
+  field_name: string;    // Field identifier (auto-formatted to Title Case in sidepanel)
+  value: string;         // The text to search for and highlight
+  page_index?: number;   // Page to search on (0-based, default: 0)
+}
+```
+
+### Customization Options
+
+#### Custom Highlight Colors
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  highlight_fields_info={highlight_fields}
+  auto_highlight_options={{
+    border_color: '#0066CC',
+    background_color: '#E6F2FF',
+    background_opacity: 0.4,
+    border_width: 2,
+  }}
+/>
+```
+
+#### Custom Search Options
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  highlight_fields_info={highlight_fields}
+  auto_highlight_search_options={{
+    normalize: false,      // Disable text normalization (exact match only)
+    padding_x: 5,          // More horizontal padding
+    padding_y: 2,          // More vertical padding
+    y_offset: -5,          // Adjust vertical position
+  }}
+/>
+```
+
+#### Disable Auto-Highlighting (Sidepanel Only)
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  highlight_fields_info={highlight_fields}
+  auto_highlight_enabled={false}  // Only show in sidepanel, no visual highlights
+/>
+```
+
+### Configuration via INI File
+
+You can set default auto-highlight styling in your config file:
+
+```ini
+[auto_highlight]
+auto_highlight_border_color = #FF6B00
+auto_highlight_background_color = #FFF3E0
+auto_highlight_background_opacity = 0.3
+auto_highlight_border_width = 1
+auto_highlight_normalize_text = true
+auto_highlight_padding_x = 2
+auto_highlight_padding_y = 1
+auto_highlight_y_offset = -3
+```
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `highlight_fields_info` | `HighlightFieldInfo[]` | `undefined` | Fields to highlight and display in sidepanel |
+| `auto_highlight_enabled` | `boolean` | `true` | Enable/disable auto-highlighting feature |
+| `auto_highlight_options` | `HighlightOptions` | From config | Custom highlight styling |
+| `auto_highlight_search_options` | `Partial<TextSearchOptions>` | From config | Custom search behavior |
+
+### Advanced: Custom Text Search
+
+For advanced use cases, you can use the text search utility directly:
+
+```tsx
+import { find_text_in_pdf, type TextSearchOptions } from 'hazo_pdf';
+
+const search_result = await find_text_in_pdf(pdf_document, 'Invoice #12345', {
+  page_index: 0,
+  normalize: true,
+  padding_x: 10,
+  padding_y: 5,
+});
+
+if (search_result) {
+  console.log('Found at:', search_result.x, search_result.y);
+  console.log('Match type:', search_result.match_type); // 'exact' | 'partial'
+}
+```
+
+---
+
 ## Programmatic Highlight API
 
-The PDF viewer exposes a ref-based API for programmatically creating, removing, and managing highlights. This allows external code to control highlights without user interaction.
+The PDF viewer also exposes a ref-based API for programmatically creating, removing, and managing highlights. This is useful when you need manual control over highlights or want to create highlights from coordinates.
+
+**Note**: For most use cases, the [Auto-Highlighting](#auto-highlighting) feature is recommended as it's simpler and requires less code.
 
 ### Basic Usage
 

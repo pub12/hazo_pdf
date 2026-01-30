@@ -7,7 +7,7 @@
 
 import { Suspense, lazy, useState, useEffect, useRef, useCallback } from "react";
 import { TestAppLayout, CodePreview } from "@/app/test-app-layout";
-import type { FileItem, PdfAnnotation, UploadResult, FileMetadataInput, FileMetadataItem, Logger, PdfViewerRef } from "@/app/lib/hazo_pdf";
+import type { FileItem, PdfAnnotation, UploadResult, FileMetadataInput, FileMetadataItem, Logger } from "@/app/lib/hazo_pdf";
 
 // Lazy load PdfViewer to avoid SSR issues with pdfjs-dist
 const PdfViewer = lazy(() =>
@@ -245,148 +245,8 @@ export default function MultiFileDemoPage() {
   const [extracted_data, setExtractedData] = useState<Record<string, unknown> | null>(null);
   // State for file metadata from database
   const [db_file_metadata, setDbFileMetadata] = useState<FileMetadataInput>([]);
-  // State for highlight fields
+  // State for highlight fields (auto-highlighting enabled!)
   const [highlight_fields, set_highlight_fields] = useState<HighlightField[]>([]);
-  // Ref to PdfViewer for imperative highlight API
-  const viewer_ref = useRef<PdfViewerRef>(null);
-
-  // Search PDF text layer for a value and return its position with padding
-  const find_text_position = useCallback(async (
-    pdf: import('pdfjs-dist').PDFDocumentProxy,
-    searchValue: string,
-    pageIndex: number
-  ): Promise<{ x: number; y: number; width: number; height: number } | null> => {
-    try {
-      const page = await pdf.getPage(pageIndex + 1); // 1-based
-      const textContent = await page.getTextContent();
-
-      // Normalize search value (remove commas, spaces)
-      const normalizedSearch = searchValue.toString().replace(/[,\s]/g, '').toLowerCase();
-      console.log(`[TextSearch] Searching for "${searchValue}" (normalized: "${normalizedSearch}") on page ${pageIndex + 1}`);
-
-      // Padding to add around the text for better visibility
-      const PADDING_X = 2;
-      const PADDING_Y = 1;
-      // Offset to push highlight down (negative in PDF coords = down visually)
-      const Y_OFFSET = -3;
-
-      // First pass: look for exact match
-      for (const item of textContent.items) {
-        if ('str' in item) {
-          const textItem = item as { str: string; transform: number[]; width?: number; height?: number };
-          const normalizedText = textItem.str.replace(/[,\s]/g, '').toLowerCase();
-
-          // Only match if this text item equals our search value
-          if (normalizedText === normalizedSearch) {
-            const x = textItem.transform[4];
-            const y = textItem.transform[5];
-            const fontSize = Math.abs(textItem.transform[0]) || 10;
-            // Calculate width based on character count and font size
-            const baseWidth = textItem.width || (textItem.str.length * fontSize * 0.55);
-            const baseHeight = textItem.height || fontSize;
-
-            // Add padding for better visibility
-            const width = baseWidth + (PADDING_X * 2);
-            const height = baseHeight + (PADDING_Y * 2);
-
-            console.log(`[TextSearch] EXACT match "${textItem.str}" at PDF coords (${x.toFixed(1)}, ${y.toFixed(1)}), size: ${width.toFixed(1)}x${height.toFixed(1)}`);
-            return {
-              x: x - PADDING_X,
-              y: y - PADDING_Y + Y_OFFSET,
-              width,
-              height
-            };
-          }
-        }
-      }
-
-      // Second pass: look for partial match (text item contains search value)
-      for (const item of textContent.items) {
-        if ('str' in item) {
-          const textItem = item as { str: string; transform: number[]; width?: number; height?: number };
-          const normalizedText = textItem.str.replace(/[,\s]/g, '').toLowerCase();
-
-          if (normalizedText.includes(normalizedSearch) && normalizedSearch.length >= 3) {
-            const x = textItem.transform[4];
-            const y = textItem.transform[5];
-            const fontSize = Math.abs(textItem.transform[0]) || 10;
-            const baseWidth = textItem.width || (textItem.str.length * fontSize * 0.55);
-            const baseHeight = textItem.height || fontSize;
-            const width = baseWidth + (PADDING_X * 2);
-            const height = baseHeight + (PADDING_Y * 2);
-
-            console.log(`[TextSearch] PARTIAL match "${textItem.str}" contains "${searchValue}" at PDF coords (${x.toFixed(1)}, ${y.toFixed(1)})`);
-            return {
-              x: x - PADDING_X,
-              y: y - PADDING_Y + Y_OFFSET,
-              width,
-              height
-            };
-          }
-        }
-      }
-
-      console.log(`[TextSearch] No match found for "${searchValue}"`);
-      return null;
-    } catch (err) {
-      console.error('[TextSearch] Error:', err);
-      return null;
-    }
-  }, []);
-
-  // Handle PDF load - find text positions and create highlights
-  const handle_pdf_load = useCallback(async (pdf: import('pdfjs-dist').PDFDocumentProxy) => {
-    console.log('[MultiFileDemo] PDF loaded, checking for highlight fields');
-
-    if (!viewer_ref.current || highlight_fields.length === 0) {
-      console.log('[MultiFileDemo] No highlight fields or viewer ref not ready');
-      return;
-    }
-
-    try {
-      // Wait a bit for viewer to render
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      console.log('[MultiFileDemo] Searching for text positions for', highlight_fields.length, 'fields');
-
-      // For each field, search for the value in the PDF text layer
-      for (const field of highlight_fields) {
-        const value = field.value;
-        if (!value) continue;
-
-        // Search for the text in the PDF
-        const textPos = await find_text_position(pdf, value, field.page_index);
-
-        if (textPos) {
-          // Use actual text position from PDF (already in PDF coordinates)
-          const finalRect: [number, number, number, number] = [
-            textPos.x,
-            textPos.y,
-            textPos.x + textPos.width,
-            textPos.y + textPos.height
-          ];
-          console.log(`[MultiFileDemo] Highlighting ${field.field_name}="${value}" at (${finalRect[0].toFixed(1)}, ${finalRect[1].toFixed(1)}) to (${finalRect[2].toFixed(1)}, ${finalRect[3].toFixed(1)})`);
-
-          // Create highlight
-          const id = viewer_ref.current.highlight_region(
-            field.page_index,
-            finalRect,
-            {
-              border_color: '#FF6B00',
-              background_color: '#FFF3E0',
-              background_opacity: 0.3,
-              border_width: 1,
-            }
-          );
-          console.log('[MultiFileDemo] Highlight created with id:', id);
-        } else {
-          console.log(`[MultiFileDemo] Text "${value}" not found in PDF for ${field.field_name}`);
-        }
-      }
-    } catch (err) {
-      console.error('[MultiFileDemo] Failed to process PDF:', err);
-    }
-  }, [highlight_fields, find_text_position]);
 
   // Initialize logger on mount
   useEffect(() => {
@@ -616,19 +476,17 @@ function App() {
           ) : (
             <Suspense fallback={<div className="p-8 text-center">Loading PDF viewer...</div>}>
               <PdfViewer
-                ref={viewer_ref}
                 files={files}
                 on_file_select={handle_file_select}
                 on_file_delete={handle_file_delete}
                 on_upload={handle_upload}
                 on_files_change={handle_files_change}
                 on_annotation_create={handle_annotation_create}
-                on_load={handle_pdf_load}
                 enable_popout={true}
                 popout_route="/pdf-viewer"
                 viewer_title="Hazo PDF Viewer"
                 file_metadata={[...db_file_metadata, ...sample_file_metadata]}
-                highlight_fields_info={highlight_fields.map(f => ({ field_name: f.field_name, value: f.value }))}
+                highlight_fields_info={highlight_fields}
                 logger={logger}
                 // Data extraction props
                 extract_api_endpoint="/api/extract"
@@ -636,6 +494,7 @@ function App() {
                 extract_prompt_key="initial_classification"
                 on_extract_complete={handle_extract_complete}
                 on_extract_error={handle_extract_error}
+                show_file_info_button={true}
                 className="h-full w-full"
               />
             </Suspense>

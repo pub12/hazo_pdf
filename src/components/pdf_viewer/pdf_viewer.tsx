@@ -88,6 +88,10 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // File info sidepanel data props
   doc_data,
   highlight_fields_info,
+  // Auto-highlight props
+  auto_highlight_enabled,
+  auto_highlight_options,
+  auto_highlight_search_options,
 }, ref) => {
   const [pdf_document, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,6 +114,9 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   const [file_info_sidepanel_open, setFileInfoSidepanelOpen] = useState(false);
   const [file_info_sidepanel_width, setFileInfoSidepanelWidth] = useState(300);
   const [hazo_files_available, setHazoFilesAvailable] = useState<boolean | null>(null);
+
+  // Auto-highlight state (track IDs of auto-created highlights)
+  const [auto_highlight_ids, setAutoHighlightIds] = useState<Set<string>>(new Set());
 
   // Page rotation state
   const [page_rotations, setPageRotations] = useState<Map<number, number>>(new Map());
@@ -1060,6 +1067,137 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       console.error('PdfViewer: Failed to popout:', err);
     }
   }, [files, current_file, viewer_title, on_popout, popout_route]);
+
+  // Auto-highlight effect - runs when PDF loads and highlight_fields_info changes
+  useEffect(() => {
+    const should_auto_highlight =
+      auto_highlight_enabled !== false && // Default true
+      highlight_fields_info &&
+      highlight_fields_info.length > 0 &&
+      pdf_document;
+
+    if (!should_auto_highlight) {
+      return;
+    }
+
+    const logger = get_logger();
+
+    // Clear previous auto-highlights
+    auto_highlight_ids.forEach(id => {
+      const annotation = annotations.find(a => a.id === id);
+      if (annotation) {
+        handle_annotation_delete(id);
+      }
+    });
+    setAutoHighlightIds(new Set());
+
+    // Async highlighting (non-blocking)
+    const perform_auto_highlights = async () => {
+      const { find_text_in_pdf } = await import('../../utils/text_search');
+      const new_ids = new Set<string>();
+
+      // Get config values
+      const auto_config = config_ref.current?.auto_highlight || default_config.auto_highlight;
+
+      // Merge search options: props > config > defaults
+      const search_opts = {
+        normalize: auto_config.auto_highlight_normalize_text,
+        padding_x: auto_config.auto_highlight_padding_x,
+        padding_y: auto_config.auto_highlight_padding_y,
+        y_offset: auto_config.auto_highlight_y_offset,
+        ...auto_highlight_search_options,
+      };
+
+      // Merge highlight style: props > config > defaults
+      const highlight_opts = auto_highlight_options || {
+        border_color: auto_config.auto_highlight_border_color,
+        background_color: auto_config.auto_highlight_background_color,
+        background_opacity: auto_config.auto_highlight_background_opacity,
+        border_width: auto_config.auto_highlight_border_width,
+      };
+
+      for (const field of highlight_fields_info!) {
+        try {
+          const page_idx = field.page_index ?? 0;
+          const result = await find_text_in_pdf(pdf_document!, field.value, {
+            page_index: page_idx,
+            ...search_opts,
+          });
+
+          if (result) {
+            logger.debug('[AutoHighlight] Found text', {
+              field: field.field_name,
+              value: field.value,
+              match_type: result.match_type,
+              position: { x: result.x, y: result.y },
+            });
+
+            const rect: [number, number, number, number] = [
+              result.x,
+              result.y,
+              result.x + result.width,
+              result.y + result.height,
+            ];
+
+            // Create highlight annotation directly
+            const highlight_config = config_ref.current?.highlight_annotation || default_config.highlight_annotation;
+
+            const annotation: PdfAnnotation = {
+              id: `auto_highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: 'Highlight',
+              page_index: page_idx,
+              rect,
+              author: 'AutoHighlight',
+              date: new Date().toISOString(),
+              contents: field.field_name, // Store field name in contents
+              color: highlight_opts.background_color || highlight_config.highlight_fill_color,
+              flags: 'api_highlight', // Marker to identify API-created highlights
+            };
+
+            // Store custom options in subject field as JSON (for rendering)
+            annotation.subject = JSON.stringify({
+              border_color: highlight_opts.border_color,
+              background_color: highlight_opts.background_color,
+              background_opacity: highlight_opts.background_opacity,
+              border_width: highlight_opts.border_width,
+            });
+
+            handle_annotation_create(annotation);
+            new_ids.add(annotation.id);
+          } else {
+            logger.warn('[AutoHighlight] Text not found in PDF', {
+              field: field.field_name,
+              value: field.value,
+              page: page_idx,
+            });
+          }
+        } catch (err) {
+          logger.error('[AutoHighlight] Search failed', {
+            field: field.field_name,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      setAutoHighlightIds(new_ids);
+    };
+
+    perform_auto_highlights();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdf_document, highlight_fields_info, auto_highlight_enabled]);
+
+  // Cleanup auto-highlights on unmount
+  useEffect(() => {
+    return () => {
+      auto_highlight_ids.forEach(id => {
+        const annotation = annotations.find(a => a.id === id);
+        if (annotation) {
+          handle_annotation_delete(id);
+        }
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check if there are changes to save (annotations or rotations)
   const has_changes_to_save = annotations.length > 0 || page_rotations.size > 0;
