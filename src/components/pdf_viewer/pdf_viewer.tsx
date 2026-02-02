@@ -672,8 +672,28 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
         } else {
           // Fetch the PDF ourselves and cache the ArrayBuffer
           // This ensures extraction uses the same data as the displayed document
-          logger.debug('[PdfViewer] Loading PDF via fetch, caching for extraction');
+          logger.debug('[PdfViewer] Loading PDF via fetch, caching for extraction', { url: effective_url });
           const response = await fetch(effective_url);
+
+          // Check for HTTP errors before parsing response
+          if (!response.ok) {
+            const error_text = await response.text().catch(() => '');
+            const truncated = error_text.length > 200 ? error_text.slice(0, 200) + '...' : error_text;
+            throw new Error(
+              `Failed to fetch PDF (${response.status} ${response.statusText}): ${truncated || 'No response body'}`
+            );
+          }
+
+          // Verify content type is PDF (some servers return HTML for errors with 200 status)
+          const content_type = response.headers.get('content-type') || '';
+          if (!content_type.includes('application/pdf') && !content_type.includes('application/octet-stream')) {
+            logger.warn('[PdfViewer] Unexpected content type for PDF', {
+              url: effective_url,
+              content_type,
+              note: 'Expected application/pdf or application/octet-stream'
+            });
+          }
+
           const array_buffer = await response.arrayBuffer();
           // Make a copy for caching (pdfjs may detach the original buffer)
           const cached_copy = array_buffer.slice(0);
