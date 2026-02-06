@@ -51,22 +51,22 @@ export function CodePreview({ code, title = "Code Example" }: CodePreviewProps) 
   const [is_open, setIsOpen] = useState(false);
 
   return (
-    <div className="cls_code_preview mb-4 border rounded-lg overflow-hidden bg-gray-50">
+    <div className="cls_code_preview mb-6 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
       <button
         onClick={() => setIsOpen(!is_open)}
-        className="cls_code_preview_header w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+        className="cls_code_preview_header w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
       >
-        <Code size={16} className="text-gray-500" />
+        <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-50 rounded-lg flex items-center justify-center">
+          <Code size={16} className="text-gray-500" />
+        </div>
         <span>{title}</span>
-        {is_open ? (
-          <ChevronDown size={16} className="ml-auto text-gray-400" />
-        ) : (
-          <ChevronRight size={16} className="ml-auto text-gray-400" />
-        )}
+        <div className={`ml-auto w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center transition-transform ${is_open ? 'rotate-180' : ''}`}>
+          <ChevronDown size={14} className="text-gray-500" />
+        </div>
       </button>
       {is_open && (
-        <div className="cls_code_preview_content border-t bg-white">
-          <pre className="p-4 text-sm overflow-auto max-h-[400px]">
+        <div className="cls_code_preview_content border-t border-gray-100">
+          <pre className="p-5 text-sm overflow-auto max-h-[400px] bg-gray-900 text-gray-100 font-mono leading-relaxed">
             <code>{code}</code>
           </pre>
         </div>
@@ -298,11 +298,16 @@ export function TestAppLayout({ children }: TestAppLayoutProps) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="cls_test_app_header flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-semibold">Test App</h1>
+        <header className="cls_test_app_header flex h-16 shrink-0 items-center gap-3 border-b border-gray-100 px-6 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+          <SidebarTrigger className="-ml-1 hover:bg-gray-100 rounded-lg transition-colors" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <FileText size={16} className="text-white" />
+            </div>
+            <h1 className="text-lg font-semibold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">Hazo PDF</h1>
+          </div>
         </header>
-        <div className="cls_test_app_content flex flex-1 flex-col gap-4 p-4 overflow-hidden">
+        <div className="cls_test_app_content flex flex-1 flex-col gap-4 p-6 overflow-hidden bg-gradient-to-br from-gray-50/50 to-white">
           {children}
         </div>
       </SidebarInset>

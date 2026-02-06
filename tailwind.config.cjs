@@ -1,6 +1,14 @@
 /**
  * Tailwind CSS configuration for hazo_pdf package
  */
+const fs = require('fs');
+const path = require('path');
+
+// Safely resolve hazo_llm_api path (handles symlinks that Turbopack can't follow)
+const hazoLlmApiPath = path.join(__dirname, 'node_modules/hazo_llm_api/dist');
+const hazoLlmApiContent = fs.existsSync(hazoLlmApiPath) && !fs.lstatSync(path.join(__dirname, 'node_modules/hazo_llm_api')).isSymbolicLink()
+  ? ['./node_modules/hazo_llm_api/dist/**/*.js']
+  : [];
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -9,8 +17,8 @@ module.exports = {
     './src/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
-    // Include hazo_llm_api components for Tailwind class generation
-    './node_modules/hazo_llm_api/dist/**/*.js',
+    // Include hazo_llm_api components for Tailwind class generation (if not symlinked)
+    ...hazoLlmApiContent,
   ],
   theme: {
   	extend: {

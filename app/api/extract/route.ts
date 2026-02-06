@@ -7,11 +7,57 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { extract_document_data } from '@/app/lib/hazo_pdf_server';
-import { createLogger } from 'hazo_logs';
 
-// Create logger for extraction API
-const logger = createLogger('hazo_pdf:extract_api');
+// Logger type definition
+type LoggerType = {
+  info: (msg: string, data?: Record<string, unknown>) => void;
+  debug: (msg: string, data?: Record<string, unknown>) => void;
+  warn: (msg: string, data?: Record<string, unknown>) => void;
+  error: (msg: string, data?: Record<string, unknown>) => void;
+};
+
+// Fallback console logger
+const console_logger: LoggerType = {
+  info: (msg: string, data?: Record<string, unknown>) => console.log(`[hazo_pdf:extract_api] ${msg}`, data || ''),
+  debug: (msg: string, data?: Record<string, unknown>) => console.debug(`[hazo_pdf:extract_api] ${msg}`, data || ''),
+  warn: (msg: string, data?: Record<string, unknown>) => console.warn(`[hazo_pdf:extract_api] ${msg}`, data || ''),
+  error: (msg: string, data?: Record<string, unknown>) => console.error(`[hazo_pdf:extract_api] ${msg}`, data || ''),
+};
+
+// Try to load hazo_logs logger
+let logger: LoggerType = console_logger;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const hazo_logs = require('hazo_logs');
+  logger = hazo_logs.createLogger('hazo_pdf:extract_api');
+} catch {
+  // Use fallback console logger (already set)
+}
+
+/**
+ * Dynamically import the extraction module (handles optional hazo_llm_api dependency)
+ */
+async function get_extract_function(): Promise<{
+  extract: typeof import('@/app/lib/hazo_pdf_server').extract_document_data | null;
+  error: string | null;
+}> {
+  try {
+    const server_module = await import('@/app/lib/hazo_pdf_server');
+    return { extract: server_module.extract_document_data, error: null };
+  } catch (error) {
+    const err_msg = error instanceof Error ? error.message : String(error);
+    if (err_msg.includes('hazo_llm_api')) {
+      return {
+        extract: null,
+        error: 'The hazo_llm_api package is required for server-side extraction. Please install it: npm install hazo_llm_api',
+      };
+    }
+    return {
+      extract: null,
+      error: `Failed to load hazo_pdf/server: ${err_msg}`,
+    };
+  }
+}
 
 /**
  * POST handler - Extract data from PDF using LLM
@@ -28,6 +74,21 @@ const logger = createLogger('hazo_pdf:extract_api');
  * - save_to_hazo_files: (optional) Whether to save extraction to hazo_files (default: true)
  */
 export async function POST(request: NextRequest) {
+  // Dynamically load the extraction module
+  const { extract: extract_document_data, error: module_load_error } = await get_extract_function();
+
+  // Check if the module was loaded successfully
+  if (module_load_error || !extract_document_data) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: module_load_error || 'Server extraction module not available',
+        missing_dependency: true,
+      },
+      { status: 503 }
+    );
+  }
+
   try {
     const body = await request.json();
     const {
@@ -111,6 +172,19 @@ export async function POST(request: NextRequest) {
 
       if (!result.success) {
         logger.error('Extraction failed', { error: result.error });
+
+        // Check if this is a missing dependency error
+        if (result.error?.includes('hazo_llm_api')) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'The hazo_llm_api package is required for server-side extraction. Please install it: npm install hazo_llm_api',
+              missing_dependency: true,
+            },
+            { status: 503 }
+          );
+        }
+
         return NextResponse.json(
           { success: false, error: result.error },
           { status: 500 }
@@ -151,13 +225,25 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (error) {
-    logger.error('Extract API error', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    const err_msg = error instanceof Error ? error.message : String(error);
+    logger.error('Extract API error', { error: err_msg });
+
+    // Check if this is a missing dependency error
+    if (err_msg.includes('hazo_llm_api')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'The hazo_llm_api package is required for server-side extraction. Please install it: npm install hazo_llm_api',
+          missing_dependency: true,
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: err_msg,
       },
       { status: 500 }
     );

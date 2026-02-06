@@ -20,11 +20,23 @@ export default function EmbeddedDemoPage() {
   return (
     <TestAppLayout>
       <div className="cls_demo_page flex flex-col h-full">
-        <div className="cls_demo_header mb-4">
-          <h2 className="text-2xl font-bold">Embedded Viewer Demo</h2>
-          <p className="text-muted-foreground">
-            Full-width/height PDF viewer embedded in the main content area. This is the simplest usage pattern.
-          </p>
+        {/* Modern Header */}
+        <div className="cls_demo_header mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                Embedded Viewer
+              </h2>
+              <p className="text-sm text-gray-500">
+                Full-width PDF viewer embedded directly in your content area
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Code Example */}
@@ -46,8 +58,15 @@ function App() {
         />
 
         {/* PDF Viewer */}
-        <div className="cls_demo_viewer flex-1 min-h-[500px] border rounded-lg overflow-hidden">
-          <Suspense fallback={<div className="p-8 text-center">Loading PDF viewer...</div>}>
+        <div className="cls_demo_viewer flex-1 min-h-[500px] border border-gray-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+          <Suspense fallback={
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                <span className="text-sm text-gray-500">Loading PDF viewer...</span>
+              </div>
+            </div>
+          }>
             <PdfViewer
               url="/api/test-app/files/sample.pdf"
               fit_to_width={true}
