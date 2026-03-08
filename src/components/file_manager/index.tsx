@@ -297,6 +297,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
   const file_manager_config = config?.file_manager;
   const upload_config = config?.file_upload;
+  const is_direct_upload = upload_config?.direct_upload ?? false;
 
   // If button-only mode, render just the button
   if (show_button_only) {
@@ -320,12 +321,13 @@ export const FileManager: React.FC<FileManagerProps> = ({
           config={config}
           on_select={handle_file_select}
           on_delete={file_manager_config?.allow_delete !== false ? handle_file_delete : undefined}
-          on_add_click={upload_config?.upload_enabled !== false ? () => setShowDropzone(true) : undefined}
+          on_add_click={upload_config?.upload_enabled !== false && !is_direct_upload ? () => setShowDropzone(true) : undefined}
+          on_files_selected={upload_config?.upload_enabled !== false && is_direct_upload ? handle_files_selected : undefined}
         />
       )}
 
-      {/* Dropzone overlay */}
-      {show_dropzone && (
+      {/* Dropzone overlay (only for non-direct mode) */}
+      {show_dropzone && !is_direct_upload && (
         <div className="cls_file_manager_dropzone_overlay">
           <div className="cls_file_manager_dropzone_dialog">
             <UploadDropzone

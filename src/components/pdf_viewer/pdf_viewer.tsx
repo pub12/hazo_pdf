@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { Save, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, RotateCw, RefreshCw, Square, Type, ExternalLink, Info, Sparkles, X } from 'lucide-react';
+import { Save, Download, Undo2, Redo2, PanelRight, PanelRightOpen, ZoomIn, ZoomOut, RotateCcw, RotateCw, RefreshCw, Square, Type, ExternalLink, Info, Sparkles, X } from 'lucide-react';
 import { ToolbarDropdownButton } from './toolbar_dropdown_button';
 import { load_pdf_document } from './pdf_worker_setup';
 import { PdfViewerLayout } from './pdf_viewer_layout';
@@ -58,6 +58,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   show_undo_button,
   show_redo_button,
   show_save_button,
+  show_download_button,
   show_metadata_button,
   show_annotate_button,
   show_file_info_button,
@@ -77,6 +78,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   on_upload,
   on_files_change,
   // file_manager_display_mode is reserved for future use (dialog/standalone modes)
+  download_filename,
+  on_download,
   enable_popout = false,
   popout_route = '/pdf-viewer',
   on_popout,
@@ -85,6 +88,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // hazo_files integration props
   file_manager,
   save_path,
+  // Upload behavior
+  direct_upload,
   // File info sidepanel data props
   doc_data,
   highlight_fields_info,
@@ -103,6 +108,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // Default tool is Pan (null) for scrolling the document
   const [current_tool, setCurrentTool] = useState<'Square' | 'Highlight' | 'FreeText' | 'CustomBookmark' | null>(null);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   // Data extraction state
   const [extracting, setExtracting] = useState(false);
   const [extract_error, setExtractError] = useState<string | null>(null);
@@ -121,6 +127,8 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // Page rotation state
   const [page_rotations, setPageRotations] = useState<Map<number, number>>(new Map());
   const [current_visible_page, setCurrentVisiblePage] = useState(0);
+  // Config loaded trigger (forces re-render after async config load)
+  const [, setConfigVersion] = useState(0);
 
   // Multi-file state
   const [current_file, setCurrentFile] = useState<FileItem | null>(
@@ -184,9 +192,10 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   }, [on_file_select]);
 
   // Load configuration from file
-  const config_ref = useRef<PdfViewerConfig | null>(null);
-  
-  // Load config once on mount
+  // Initialize with defaults so config is available on first render
+  const config_ref = useRef<PdfViewerConfig | null>(load_pdf_config());
+
+  // Load config from file on mount (overrides defaults)
   // Uses hazo_config in Node.js (preferred), fetch + compatible parsing in browser
   useEffect(() => {
     if (!config_file) {
@@ -204,6 +213,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       load_pdf_config_async(config_file)
         .then(config => {
           config_ref.current = config;
+          setConfigVersion(v => v + 1);
           console.log('[PdfViewer] Config loaded:', {
             append_timestamp_to_text_edits: config.viewer.append_timestamp_to_text_edits,
             config_object: config,
@@ -212,6 +222,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
         .catch(error => {
           console.warn(`[PdfViewer] Could not load config file "${config_file}", using defaults:`, error);
           config_ref.current = load_pdf_config(); // Use defaults
+          setConfigVersion(v => v + 1);
         });
     } else {
       // Node.js: use hazo_config (preferred method)
@@ -221,7 +232,19 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       });
     }
   }, [config_file]);
-  
+
+  // Override direct_upload from prop at render time (not in useEffect)
+  // so FileManager sees the correct value on first render
+  if (direct_upload !== undefined && config_ref.current) {
+    config_ref.current = {
+      ...config_ref.current,
+      file_upload: {
+        ...config_ref.current.file_upload,
+        direct_upload,
+      },
+    };
+  }
+
   // Get effective background color: prop > config > default
   const effective_background_color = background_color || 
     config_ref.current?.viewer.viewer_background_color || 
@@ -1285,6 +1308,47 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     }
   };
 
+  // Handle download PDF (with annotations baked in)
+  const handle_download = async () => {
+    if (!effective_url && !cached_pdf_data) {
+      console.error('PdfViewer: No PDF available for download');
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const logger = get_logger();
+      const { save_annotations_to_pdf, download_pdf } = await import('../../utils/pdf_saver');
+
+      // Resolve filename
+      const original_filename = is_multi_file_mode && current_file
+        ? current_file.name
+        : (effective_url?.split('/').pop() || 'document.pdf');
+      const output_filename = download_filename || original_filename;
+
+      // Use cached PDF data if available, otherwise use URL
+      const pdf_source: string | ArrayBuffer = cached_pdf_data || effective_url as string;
+      logger.debug('[PdfViewer] Downloading PDF', { filename: output_filename });
+
+      // Bake annotations and rotations into the PDF
+      const pdf_bytes = await save_annotations_to_pdf(pdf_source, annotations, output_filename, config_ref.current, page_rotations);
+
+      // Trigger browser download
+      download_pdf(pdf_bytes, output_filename);
+
+      // Notify caller
+      on_download?.(output_filename);
+    } catch (error) {
+      console.error('PdfViewer: Error downloading PDF:', error);
+      const error_obj = error instanceof Error ? error : new Error(String(error));
+      if (on_error) {
+        on_error(error_obj);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Handle data extraction via LLM
   const handle_extract = async () => {
     if (!extract_api_endpoint) {
@@ -1451,6 +1515,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     toolbar_show_annotate_button: show_annotate_button ?? base_toolbar_config.toolbar_show_annotate_button,
     toolbar_show_file_info_button: show_file_info_button ?? base_toolbar_config.toolbar_show_file_info_button,
     toolbar_show_extract_button: show_extract_button ?? base_toolbar_config.toolbar_show_extract_button,
+    toolbar_show_download_button: show_download_button ?? base_toolbar_config.toolbar_show_download_button,
     toolbar_show_rotation_controls: base_toolbar_config.toolbar_show_rotation_controls ?? true,
   };
 
@@ -1754,6 +1819,39 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
               }}
             >
               <Save className="cls_pdf_viewer_toolbar_icon" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Download Button */}
+        {toolbar_config.toolbar_show_download_button && (
+          <div className="cls_pdf_viewer_toolbar_group">
+            <button
+              type="button"
+              onClick={handle_download}
+              disabled={downloading || !pdf_document}
+              className={cn(
+                'cls_pdf_viewer_toolbar_button',
+                'cls_pdf_viewer_toolbar_button_download',
+                (downloading || !pdf_document) && 'cls_pdf_viewer_toolbar_button_disabled'
+              )}
+              aria-label="Download PDF"
+              title={downloading ? 'Downloading...' : 'Download PDF'}
+              style={{
+                backgroundColor: toolbar_config.toolbar_button_background_color,
+                color: toolbar_config.toolbar_button_text_color,
+                opacity: (downloading || !pdf_document) ? toolbar_config.toolbar_button_disabled_opacity : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!(downloading || !pdf_document)) {
+                  e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color_hover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = toolbar_config.toolbar_button_background_color;
+              }}
+            >
+              <Download className="cls_pdf_viewer_toolbar_icon" size={16} />
             </button>
           </div>
         )}

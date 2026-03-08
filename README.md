@@ -890,6 +890,7 @@ You can override any or all of these on a per-highlight basis.
 | `on_load` | `(pdf: PDFDocumentProxy) => void` | Called when PDF is successfully loaded. Receives the PDF document proxy with metadata (page count, etc.). |
 | `on_error` | `(error: Error) => void` | Called when an error occurs (PDF load failure, rendering error, etc.). Receives the error object. |
 | `on_save` | `(pdf_bytes: Uint8Array, filename: string) => void` | Called when user clicks the Save button. Receives the PDF bytes with annotations embedded and a suggested filename. You can create a Blob and trigger download, or upload to a server. |
+| `on_download` | `(filename: string) => void` | Called after the Download button triggers a browser download. Receives the filename used. |
 
 ##### Annotation Management
 
@@ -999,6 +1000,7 @@ Props for managing multiple PDF files. Mutually exclusive with `url` prop.
 | `on_file_delete` | `(file_id: string) => void` | `undefined` | Callback when a file is deleted in multi-file mode. Receives file ID. |
 | `on_upload` | `(file: File, converted_pdf?: Uint8Array) => Promise<UploadResult>` | `undefined` | Callback for file upload. Receives original file and optional converted PDF (for non-PDF files). Must return `{ success: boolean, file_id?: string, url?: string, error?: string }`. |
 | `on_files_change` | `(files: FileItem[]) => void` | `undefined` | Callback when files array changes (file added, deleted, or reordered). |
+| `direct_upload` | `boolean` | `false` | When `true`, clicking "+ Add file" opens the native file picker directly (1-click). The button also accepts drag & drop. When `false` (default), clicking shows a dropzone modal first (2-click). Can also be set via `file_upload.direct_upload` in INI config. |
 | `enable_popout` | `boolean` | `false` | Enable popout to new tab feature. Shows popout button in toolbar. |
 | `popout_route` | `string` | `'/pdf-viewer'` | Route path for popout viewer. Used to construct new tab URL. |
 | `on_popout` | `(context: PopoutContext) => void` | `undefined` | Custom popout handler. Overrides default sessionStorage behavior. Receives context with file info and annotations. |
@@ -1028,7 +1030,9 @@ Props to control toolbar button visibility. These override config file values.
 | `show_metadata_button` | `boolean` | `true` | Show metadata panel button (only visible when `sidepanel_metadata_enabled` is true). |
 | `show_annotate_button` | `boolean` | `true` | Show annotate (FreeText) button. |
 | `show_file_info_button` | `boolean` | `true` | Show file info sidepanel button (only visible when `file_metadata` is provided). |
+| `show_download_button` | `boolean` | `false` | Show Download button. Downloads the PDF with annotations baked in. |
 | `show_extract_button` | `boolean` | `false` | Show Extract button for data extraction. Requires extraction props to be configured. |
+| `download_filename` | `string` | `undefined` | Custom filename for the downloaded PDF. Defaults to the original filename or `"document.pdf"`. |
 | `on_close` | `() => void` | `undefined` | Callback when close button is clicked. When provided, shows a close button (X) in the toolbar. Useful for modal/dialog usage. |
 
 **Example - Minimal toolbar:**
@@ -1837,6 +1841,39 @@ interface FileItem {
 - When `files` is provided, the file manager UI is displayed
 - Files can be uploaded as PDFs or non-PDF formats (images, Excel, text files)
 - Non-PDF files are automatically converted to PDF before upload
+
+### Direct Upload Mode
+
+By default, clicking "+ Add file" opens a dropzone modal where the user must click again to browse files (2-click flow). Set `direct_upload={true}` for a faster 1-click flow where clicking "+ Add file" immediately opens the native file picker. The button also doubles as a drag & drop target.
+
+```tsx
+// 1-click upload: click "Add file" → file picker opens immediately
+<PdfViewer
+  files={files}
+  on_files_change={setFiles}
+  on_upload={handle_upload}
+  direct_upload={true}
+/>
+
+// Also works with PdfViewerDialog
+<PdfViewerDialog
+  open={is_open}
+  on_open_change={set_is_open}
+  files={files}
+  on_files_change={setFiles}
+  on_upload={handle_upload}
+  direct_upload={true}
+/>
+```
+
+This is recommended when embedding the viewer in workflows where users already know which file to upload (e.g., row-level file icons in data tables). The drag & drop capability is preserved — dragging files onto the "+ Add file" button shows a "Drop here" indicator.
+
+Can also be set via INI config:
+
+```ini
+[file_upload]
+direct_upload = true
+```
 
 ---
 

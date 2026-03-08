@@ -509,6 +509,10 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
         get_value('toolbar', 'toolbar_show_extract_button'),
         default_config.toolbar.toolbar_show_extract_button
       ),
+      toolbar_show_download_button: parse_boolean(
+        get_value('toolbar', 'toolbar_show_download_button'),
+        default_config.toolbar.toolbar_show_download_button
+      ),
       toolbar_zoom_out_label: parse_string(
         get_value('toolbar', 'toolbar_zoom_out_label'),
         default_config.toolbar.toolbar_zoom_out_label
@@ -614,6 +618,10 @@ export function build_config_from_ini(get_value: (section: string, key: string) 
       dropzone_background_color: parse_color(
         get_value('file_upload', 'dropzone_background_color'),
         default_config.file_upload.dropzone_background_color
+      ),
+      direct_upload: parse_boolean(
+        get_value('file_upload', 'direct_upload'),
+        default_config.file_upload.direct_upload
       ),
     },
 

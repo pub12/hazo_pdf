@@ -119,6 +119,9 @@ export interface PdfViewerProps {
   /** Whether to show save button (default: true) */
   show_save_button?: boolean;
 
+  /** Whether to show download button in the toolbar (default: false) */
+  show_download_button?: boolean;
+
   /** Whether to show metadata panel button (default: true, only visible when sidepanel_metadata_enabled) */
   show_metadata_button?: boolean;
 
@@ -185,6 +188,12 @@ export interface PdfViewerProps {
   /** File manager display mode (default: 'embedded') */
   file_manager_display_mode?: FileManagerDisplayMode;
 
+  /** Custom filename for the downloaded PDF (default: original filename or "document.pdf") */
+  download_filename?: string;
+
+  /** Callback after download completes */
+  on_download?: (filename: string) => void;
+
   /** Enable popout to new tab feature (default: false) */
   enable_popout?: boolean;
 
@@ -207,6 +216,9 @@ export interface PdfViewerProps {
 
   /** Remote path for saving PDF via hazo_files (used with file_manager) */
   save_path?: string;
+
+  /** When true, clicking "Add file" opens OS file picker directly instead of showing dropzone overlay. The add button also becomes a drag-and-drop target. (default: false) */
+  direct_upload?: boolean;
 }
 
 /**

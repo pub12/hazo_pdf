@@ -107,6 +107,7 @@ export const default_config: PdfViewerConfig = {
     toolbar_show_annotate_button: true,
     toolbar_show_file_info_button: true,
     toolbar_show_extract_button: true,
+    toolbar_show_download_button: false,
     toolbar_zoom_out_label: '−',
     toolbar_zoom_in_label: '+',
     toolbar_zoom_reset_label: 'Reset',
@@ -138,6 +139,7 @@ export const default_config: PdfViewerConfig = {
     dropzone_border_color: '#d1d5db',
     dropzone_border_color_active: '#3b82f6',
     dropzone_background_color: '#f9fafb',
+    direct_upload: false,
   },
 
   pdf_conversion: {

@@ -3,7 +3,7 @@
  * Horizontal scrollable list of file items with navigation and add button
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import type { FileItem } from './types';
 import type { PdfViewerConfig } from '../../types/config';
@@ -21,8 +21,10 @@ export interface FileListProps {
   on_select: (file: FileItem) => void;
   /** Callback when a file is deleted */
   on_delete?: (file_id: string) => void;
-  /** Callback when add button is clicked */
+  /** Callback when add button is clicked (opens dropzone overlay) */
   on_add_click?: () => void;
+  /** Callback when files are selected directly (for direct_upload mode) */
+  on_files_selected?: (files: File[]) => void;
   /** Additional CSS class name */
   className?: string;
 }
@@ -34,14 +36,22 @@ export const FileList: React.FC<FileListProps> = ({
   on_select,
   on_delete,
   on_add_click,
+  on_files_selected,
   className,
 }) => {
   const scroll_ref = useRef<HTMLDivElement>(null);
+  const file_input_ref = useRef<HTMLInputElement>(null);
+  const drag_counter = useRef(0);
   const [can_scroll_left, setCanScrollLeft] = useState(false);
   const [can_scroll_right, setCanScrollRight] = useState(false);
+  const [is_dragging, setIsDragging] = useState(false);
 
   const file_manager_config = config?.file_manager;
   const upload_config = config?.file_upload;
+  const is_direct_upload = !!on_files_selected;
+
+  // Parse allowed types for file input accept attribute
+  const accept_string = upload_config?.allowed_types || 'application/pdf';
 
   // Check scroll state
   const update_scroll_state = () => {
@@ -88,11 +98,63 @@ export const FileList: React.FC<FileListProps> = ({
     }
   }, [selected_file_id]);
 
+  // Direct upload: click opens file picker
+  const handle_add_click = useCallback(() => {
+    if (is_direct_upload) {
+      file_input_ref.current?.click();
+    } else {
+      on_add_click?.();
+    }
+  }, [is_direct_upload, on_add_click]);
+
+  // Direct upload: file input change
+  const handle_input_change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      on_files_selected?.(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  }, [on_files_selected]);
+
+  // Direct upload: drag handlers for add button
+  const handle_drag_enter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag_counter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handle_drag_leave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag_counter.current--;
+    if (drag_counter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handle_drag_over = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handle_drop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    drag_counter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      on_files_selected?.(Array.from(e.dataTransfer.files));
+    }
+  }, [on_files_selected]);
+
   const height = file_manager_config?.file_list_height || 60;
   const background_color = file_manager_config?.file_list_background_color || '#f3f4f6';
   const border_color = file_manager_config?.file_list_border_color || '#e5e7eb';
   const allow_delete = file_manager_config?.allow_delete ?? true;
   const show_add_button = upload_config?.show_add_button ?? true;
+  const has_add_handler = is_direct_upload || !!on_add_click;
 
   return (
     <div
@@ -135,17 +197,41 @@ export const FileList: React.FC<FileListProps> = ({
           />
         ))}
 
-        {/* Add button */}
-        {show_add_button && on_add_click && (
-          <button
-            className="cls_file_list_add_btn"
-            onClick={on_add_click}
-            aria-label="Add file"
-            title="Add file"
-          >
-            <Plus size={16} />
-            <span className="cls_file_list_add_btn_text">Add file</span>
-          </button>
+        {/* Add button - in direct_upload mode, also acts as dropzone */}
+        {show_add_button && has_add_handler && (
+          <>
+            <button
+              className={cn(
+                'cls_file_list_add_btn',
+                is_dragging && 'cls_file_list_add_btn_dragging'
+              )}
+              onClick={handle_add_click}
+              onDragEnter={is_direct_upload ? handle_drag_enter : undefined}
+              onDragLeave={is_direct_upload ? handle_drag_leave : undefined}
+              onDragOver={is_direct_upload ? handle_drag_over : undefined}
+              onDrop={is_direct_upload ? handle_drop : undefined}
+              aria-label="Add file"
+              title={is_direct_upload ? 'Click to browse or drag files here' : 'Add file'}
+            >
+              <Plus size={16} />
+              <span className="cls_file_list_add_btn_text">
+                {is_dragging ? 'Drop here' : 'Add file'}
+              </span>
+            </button>
+            {/* Hidden file input for direct upload mode */}
+            {is_direct_upload && (
+              <input
+                ref={file_input_ref}
+                type="file"
+                accept={accept_string}
+                multiple
+                onChange={handle_input_change}
+                style={{ display: 'none' }}
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            )}
+          </>
         )}
       </div>
 

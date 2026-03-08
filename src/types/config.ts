@@ -191,6 +191,8 @@ export interface PdfViewerConfig {
     toolbar_show_file_info_button: boolean;
     /** Whether to show extract data button (true/false) */
     toolbar_show_extract_button: boolean;
+    /** Whether to show download button (true/false) */
+    toolbar_show_download_button: boolean;
     /** Label for zoom out button (default: "−") */
     toolbar_zoom_out_label: string;
     /** Label for zoom in button (default: "+") */
@@ -249,6 +251,8 @@ export interface PdfViewerConfig {
     dropzone_border_color_active: string;
     /** Dropzone background color (hex format) */
     dropzone_background_color: string;
+    /** When true, clicking "Add file" opens OS file picker directly instead of showing dropzone overlay. The add button also becomes a drag-and-drop target. */
+    direct_upload: boolean;
   };
 
   // PDF conversion configuration

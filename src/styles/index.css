@@ -1204,6 +1204,13 @@
   white-space: nowrap;
 }
 
+.cls_file_list_add_btn_dragging {
+  border-color: #3b82f6 !important;
+  border-style: solid !important;
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
 /* File Manager Button (compact trigger) */
 .cls_file_manager_button {
   @apply relative p-2 rounded transition-colors cursor-pointer;
