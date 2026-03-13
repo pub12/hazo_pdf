@@ -1033,6 +1033,7 @@ Props to control toolbar button visibility. These override config file values.
 | `show_download_button` | `boolean` | `false` | Show Download button. Downloads the PDF with annotations baked in. |
 | `show_extract_button` | `boolean` | `false` | Show Extract button for data extraction. Requires extraction props to be configured. |
 | `download_filename` | `string` | `undefined` | Custom filename for the downloaded PDF. Defaults to the original filename or `"document.pdf"`. |
+| `display_filename` | `string` | `undefined` | Override the displayed filename in the file info sidepanel. Useful when `url` is an API endpoint that produces a non-human-readable path. |
 | `on_close` | `() => void` | `undefined` | Callback when close button is clicked. When provided, shows a close button (X) in the toolbar. Useful for modal/dialog usage. |
 
 **Example - Minimal toolbar:**

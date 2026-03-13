@@ -191,6 +191,9 @@ export interface PdfViewerProps {
   /** Custom filename for the downloaded PDF (default: original filename or "document.pdf") */
   download_filename?: string;
 
+  /** Override the displayed filename in the file info sidepanel (useful when url is an API endpoint) */
+  display_filename?: string;
+
   /** Callback after download completes */
   on_download?: (filename: string) => void;
 

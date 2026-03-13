@@ -79,6 +79,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   on_files_change,
   // file_manager_display_mode is reserved for future use (dialog/standalone modes)
   download_filename,
+  display_filename,
   on_download,
   enable_popout = false,
   popout_route = '/pdf-viewer',
@@ -1380,7 +1381,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       // Get current filename for logging and database matching
       const current_filename = is_multi_file_mode
         ? current_file?.name
-        : (url ? url.split('/').pop() || 'unknown' : 'unknown');
+        : (display_filename || (url ? url.split('/').pop() || 'unknown' : 'unknown'));
 
       logger.info('[PdfViewer] Starting data extraction', { filename: current_filename });
 
@@ -2129,7 +2130,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             on_toggle={handle_file_info_sidepanel_toggle}
             item={(() => {
               // Create FileSystemItem from current PDF
-              const filename = current_file?.name || (url ? url.split('/').pop() || '' : '');
+              const filename = current_file?.name || display_filename || (url ? url.split('/').pop() || '' : '');
               const filepath = effective_url || '';
               if (!filename) return null;
               return {
@@ -2143,7 +2144,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
             width={file_info_sidepanel_width}
             on_width_change={handle_file_info_sidepanel_width_change}
             file_metadata={file_metadata}
-            current_filename={current_file?.name || (url ? url.split('/').pop() || '' : '')}
+            current_filename={current_file?.name || display_filename || (url ? url.split('/').pop() || '' : '')}
             doc_data={doc_data}
             highlight_fields_info={highlight_fields_info}
           />
