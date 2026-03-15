@@ -5,6 +5,30 @@ All notable changes to the hazo_pdf project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-03-15
+
+### Fixed
+
+#### Fit-to-Width Zoom Feedback Loop
+- **Issue**: When `fit_to_width={true}` was enabled, clicking zoom in/out/reset buttons had no visible effect. The zoom percentage would briefly display the new scale but immediately revert to the calculated fit-to-width scale.
+- **Root Cause**: The fit-to-width auto-scaling effect included `scale` in its dependency array, creating a feedback loop:
+  1. User clicks zoom button → `setScale()` is called
+  2. Scale state changes, triggering the fit-to-width effect
+  3. Effect recalculates the fit-to-width scale from container width
+  4. Effect calls `setScale()` again, overriding user's zoom immediately
+- **Solution**:
+  - Added `fit_to_width_active_ref` (useRef) to track whether fit-to-width auto-scaling is currently active
+  - Removed `scale` from the fit-to-width effect's dependency array (changed from `[fit_to_width, first_page_width, scale]` to `[fit_to_width, first_page_width]`)
+  - Added guard in `calculate_fit_scale()` to check `fit_to_width_active_ref.current` before applying auto-scaling
+  - All three zoom handlers (`handle_zoom_in`, `handle_zoom_out`, `handle_zoom_reset`) now set `fit_to_width_active_ref.current = false` before calling `setScale()` to disable auto-scaling
+  - When `fit_to_width` prop changes or container is resized, the ref syncs to re-enable auto-scaling behavior
+- **Behavior After Fix**:
+  - Initial page load still calculates and applies fit-to-width scale
+  - Manual zoom (in/out/reset) buttons now work correctly and stick to user's selected scale
+  - Container resize still recalculates fit-to-width scale only when auto-scaling is active
+  - Changing the `fit_to_width` prop re-enables auto-scaling behavior
+  - No user-facing API changes required
+
 ## [1.4.0] - 2026-01-22
 
 ### Added

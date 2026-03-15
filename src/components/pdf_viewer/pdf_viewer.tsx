@@ -174,6 +174,9 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
   // First page dimensions for fit-to-width calculation (at scale=1)
   const [first_page_width, setFirstPageWidth] = useState<number | null>(null);
 
+  // When true, fit-to-width auto-scaling is active. Disabled on manual zoom.
+  const fit_to_width_active_ref = useRef(fit_to_width);
+
   // Sync current_file when files prop changes
   useEffect(() => {
     if (files && files.length > 0) {
@@ -764,6 +767,11 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     });
   }, [pdf_document]);
 
+  // Re-enable fit-to-width when the prop changes
+  useEffect(() => {
+    fit_to_width_active_ref.current = fit_to_width;
+  }, [fit_to_width]);
+
   // Fit-to-width: Calculate scale based on container width and PDF page width
   useEffect(() => {
     if (!fit_to_width || !first_page_width || !content_container_ref.current) {
@@ -771,6 +779,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     }
 
     const calculate_fit_scale = () => {
+      if (!fit_to_width_active_ref.current) return;
       if (!content_container_ref.current || !first_page_width) return;
 
       // Get container width (subtract some padding for page margins)
@@ -781,10 +790,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
       // Calculate scale to fit PDF width to available width
       const new_scale = Math.max(0.1, Math.min(3.0, available_width / first_page_width));
 
-      // Only update if scale changed significantly (avoid infinite loops)
-      if (Math.abs(new_scale - scale) > 0.01) {
-        setScale(new_scale);
-      }
+      setScale(new_scale);
     };
 
     // Calculate initial scale
@@ -800,7 +806,7 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     return () => {
       resize_observer.disconnect();
     };
-  }, [fit_to_width, first_page_width, scale]);
+  }, [fit_to_width, first_page_width]);
 
   // Previously logged global mouse clicks for debugging; removed for cleaner console.
 
@@ -983,16 +989,19 @@ export const PdfViewer = forwardRef<PdfViewerRef, PdfViewerProps>(({
     };
   }, [handle_undo, handle_redo]);
 
-  // Handle zoom controls
+  // Handle zoom controls — manual zoom disables fit-to-width auto-scaling
   const handle_zoom_in = () => {
+    fit_to_width_active_ref.current = false;
     setScale((prev) => Math.min(prev + 0.25, 3.0));
   };
 
   const handle_zoom_out = () => {
+    fit_to_width_active_ref.current = false;
     setScale((prev) => Math.max(prev - 0.25, 0.5));
   };
 
   const handle_zoom_reset = () => {
+    fit_to_width_active_ref.current = false;
     setScale(1.0);
   };
 

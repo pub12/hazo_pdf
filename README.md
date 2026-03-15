@@ -879,6 +879,7 @@ You can override any or all of these on a per-highlight basis.
 |------|------|---------|-------------|
 | `className` | `string` | `""` | Additional CSS classes to apply to the viewer container. |
 | `scale` | `number` | `1.0` | Initial zoom level. Values > 1.0 zoom in, < 1.0 zoom out. |
+| `fit_to_width` | `boolean` | `false` | If `true`, automatically scales the PDF to fit the container width. Manual zoom buttons override auto-scaling. Container must have explicit dimensions. |
 | `background_color` | `string` | `"#2d2d2d"` | Background color for areas outside PDF pages (hex format: `#RRGGBB`). Overrides config file value. |
 | `config_file` | `string` | `undefined` | Path to configuration INI file (e.g., `"config/hazo_pdf_config.ini"`). If not provided, uses default configuration. |
 | `logger` | `Logger` | `undefined` | Logger instance from hazo_logs or custom logger matching the Logger interface. If not provided, falls back to console-based logging. Useful for debugging and monitoring PDF operations. |
@@ -1318,6 +1319,28 @@ The PDF viewer includes a toolbar at the top with the following controls:
 - Click the `+` or `-` buttons to adjust zoom
 - Click "Reset" to return to default zoom
 - Zoom affects the PDF page size but maintains aspect ratio
+
+### Fit-to-Width Mode
+
+Enable automatic width-based scaling with the `fit_to_width` prop:
+
+```tsx
+<PdfViewer
+  url="/document.pdf"
+  fit_to_width={true}
+/>
+```
+
+**Behavior:**
+- When enabled, the PDF automatically scales to fit the container width on initial load and after window resize
+- User can manually zoom in/out with zoom buttons, which disables auto-scaling for that session
+- Changing the `fit_to_width` prop value re-enables auto-scaling behavior
+- Use case: Viewing documents where full-width display is preferred (e.g., forms, contracts)
+
+**Technical Notes:**
+- Does not conflict with the `scale` prop (scale is the initial value, fit_to_width can override it after render)
+- Manual zoom buttons override fit-to-width mode, allowing users to adjust as needed
+- Container must have explicit width and height (see [Container Requirements](#container-requirements))
 
 ### Annotation Tools
 

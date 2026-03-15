@@ -85,6 +85,7 @@ hazo_pdf/
 - `url` (string, required): URL or path to PDF file
 - `className` (string, optional): Additional CSS classes
 - `scale` (number, optional): Initial zoom level (default: 1.0)
+- `fit_to_width` (boolean, optional): Enable automatic width-based scaling (default: false)
 - `logger` (Logger, optional): Logger instance from hazo_logs or custom logger
 - `on_load` (function, optional): Callback when PDF loads
 - `on_error` (function, optional): Error handler
@@ -99,6 +100,25 @@ hazo_pdf/
 - Annotation tools (Square, Highlight)
 - Toolbar with controls
 - Error handling and loading states
+
+### Fit-to-Width Behavior
+
+The `fit_to_width` prop enables automatic scaling of the PDF to fit the container width. This feature uses a ref-based state tracking system to prevent zoom feedback loops:
+
+**How it works**:
+- When `fit_to_width={true}`, the component calculates the optimal scale based on the first page width and container width
+- On initial load or container resize, the PDF automatically scales to fit the available width
+- When user clicks zoom in/out/reset buttons, the `fit_to_width_active_ref` is set to `false`, disabling auto-scaling
+- This allows users to manually override the fit-to-width scale and have their zoom choice persist
+- If the `fit_to_width` prop changes or container is resized while auto-scaling is disabled, the ref syncs to reflect the current state
+
+**Technical Details**:
+- `fit_to_width_active_ref` (useRef): Tracks whether fit-to-width auto-scaling is currently active
+- The fit-to-width effect has dependency array `[fit_to_width, first_page_width]` (deliberately excludes `scale`)
+- `calculate_fit_scale()` checks the ref before applying auto-scaling to avoid feedback loops
+- All zoom handlers disable auto-scaling by setting `fit_to_width_active_ref.current = false`
+
+**Gotcha**: Before v1.6.3, the fit-to-width effect included `scale` in its dependency array, causing a feedback loop where zoom button clicks were immediately overridden. This was fixed by using a ref to track auto-scaling state separately from the zoom scale.
 
 ### PdfViewerLayout
 **File**: `src/components/pdf_viewer/pdf_viewer_layout.tsx`
